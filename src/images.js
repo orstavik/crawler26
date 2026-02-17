@@ -1,4 +1,4 @@
-async function wow() {
+window.wow = async function wow() {
   'use strict'
   const safeURL = url => { try { return new URL(url.trim(), location.href) } catch { return null } }
   const abs = url => safeURL(url)?.href
@@ -6,7 +6,7 @@ async function wow() {
   const queryMap = (sel, fn, root = document) => Array.from(root.querySelectorAll(sel)).flatMap(fn).filter(Boolean)
   const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
   const getParams = url => { const u = safeURL(url); return u ? { w: u.searchParams.get('w') || u.searchParams.get('width'), h: u.searchParams.get('h') || u.searchParams.get('height') } : {} }
-  
+
   const CallAndCatch = (fn, value) => { try { return fn() } catch { return value } }
 
   const discoverImages = () => {
@@ -22,17 +22,7 @@ async function wow() {
           return a === 'data-srcset' ? parseSrcset(v).map(u => rec(u, `img-lazy-${a}`, img.alt, findLink(img))) : [rec(v, `img-lazy-${a}`, img.alt, findLink(img))]
         })
       ]),
-      PICTURE: () => queryMap('picture', pic => {
-        const alt = pic.querySelector('img')?.alt
-        return queryMap('source', s => s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', alt, findLink(pic))) : [], pic)
-      }),
-      //       PICTURE: () => queryMap('picture source', pic => {
-      //   const alt = pic.querySelector('img')?.alt
-      //   return queryMap('source', s => {
-      //     const pic = s.closest('picture');
-      //     const alt = pic.querySelector('img')?.alt
-      //     s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', alt, findLink(pic))) : []}, pic)
-      // }),
+      PICTURE: () => queryMap('picture source', s => s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', s.closest('picture').querySelector('img')?.alt, findLink(pic))) : []),
 
       VIDEO: () => queryMap('video[poster]', vid => rec(vid.poster, 'video-poster', vid.title || vid.getAttribute('aria-label'))),
       CSS: () => queryMap('*', el => {
@@ -45,7 +35,6 @@ async function wow() {
       Meta: () => queryMap('meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]', m => rec(m.content || m.href, 'meta', document.title)),
       'JSON-LD': () => queryMap('script[type="application/ld+json"]', CallAndCatch(s => extractJSON(JSON.parse(s.textContent), 'jsonld'), []))
     }
-
 
     const rec = (url, type, desc = null, link = null) => {
       const a = abs(url)
@@ -338,4 +327,4 @@ async function wow() {
     return { discovered: [], refined: [], filtered: [] }
   }
 }
-wow();
+window.wow();
