@@ -1,46 +1,54 @@
 window.wow2 = async function wow() {
   'use strict'
   const safeURL = url => { try { return new URL(url.trim(), location.href) } catch { return null } }
-  const abs = url => safeURL(url)?.href
   const matchAny = (str, patterns) => patterns.some(p => (p instanceof RegExp ? p.test(str) : str.includes(p)))
   const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
   const getParams = url => { const u = safeURL(url); return u ? { w: u.searchParams.get('w') || u.searchParams.get('width'), h: u.searchParams.get('h') || u.searchParams.get('height') } : {} }
 
   const CallAndCatch = (fn, value) => { try { return fn() } catch { return value } }
+  const verifyURL = async (url) => { try { return (await fetch(url, { method: 'HEAD', mode: 'cors' })).ok } catch { return false } }
 
   const discoverImages = () => {
 
-    const SelectorMap = {
+    function Image(url, type, description, linkContext) {
+      const a = safeURL(url);
+      if (!a) return null;
+      const filename = a.pathname.split('/').pop();
+      return {
+        pageURL: location.href,
+        imageURL: a.href,
+        type,
+        description,
+        linkContext,
+        filename,
+      };
+    }
+
+    const ImageMap = {
       IMG: ['img', img => [
-        rec(img.src, 'img-src', img.alt, findLink(img)),
-        img.currentSrc !== img.src && rec(img.currentSrc, 'img-currentsrc', img.alt, findLink(img)),
-        ...(img.srcset ? parseSrcset(img.srcset).map(u => rec(u, 'img-srcset', img.alt, findLink(img))) : []),
+        Image(img.src, 'img-src', img.alt, findLink(img)),
+        img.currentSrc !== img.src && Image(img.currentSrc, 'img-currentsrc', img.alt, findLink(img)),
+        ...(img.srcset ? parseSrcset(img.srcset).map(u => Image(u, 'img-srcset', img.alt, findLink(img))) : []),
         ...['data-src', 'data-lazy', 'data-lazy-src', 'data-srcset', 'data-original', 'data-img', 'data-image'].flatMap(a => {
           const v = img.getAttribute(a)
           if (!v) return []
-          return a === 'data-srcset' ? parseSrcset(v).map(u => rec(u, `img-lazy-${a}`, img.alt, findLink(img))) : [rec(v, `img-lazy-${a}`, img.alt, findLink(img))]
+          return a === 'data-srcset' ? parseSrcset(v).map(u => Image(u, `img-lazy-${a}`, img.alt, findLink(img))) : [Image(v, `img-lazy-${a}`, img.alt, findLink(img))]
         })
       ]],
-      PICTURE: ['picture source', s => s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', s.closest('picture').querySelector('img')?.alt, findLink(pic))) : []],
+      PICTURE: ['picture source', s => s.srcset ? parseSrcset(s.srcset).map(u => Image(u, 'picture-source', s.closest('picture').querySelector('img')?.alt, findLink(pic))) : []],
 
-      VIDEO: ['video[poster]', vid => rec(vid.poster, 'video-poster', vid.title || vid.getAttribute('aria-label'))],
+      VIDEO: ['video[poster]', vid => Image(vid.poster, 'video-poster', vid.title || vid.getAttribute('aria-label'))],
       CSS: ['*', el => {
         const bg = getComputedStyle(el).backgroundImage
-        return bg !== 'none' ? (bg.match(/url\(['"]?([^'"()]+)['"]?\)/g) || []).map(m => rec(m.replace(/url\(['"]?([^'"()]+)['"]?\)/, '$1'), 'css-bg')) : []
+        return bg !== 'none' ? (bg.match(/url\(['"]?([^'"()]+)['"]?\)/g) || []).map(m => Image(m.replace(/url\(['"]?([^'"()]+)['"]?\)/, '$1'), 'css-bg')) : []
       }],
-      ICONS: ['link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"], link[rel="shortcut icon"]', l => rec(l.href, 'favicon', document.title)],
-      SVG: ['svg image', img => [img.href?.baseVal, img.getAttribute('xlink:href')].filter(Boolean).map(u => rec(u, 'svg-image'))],
-      OBJECTS: ['object[data], embed[src]', obj => rec(obj.data || obj.src, 'object-embed')],
-      Meta: ['meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]', m => rec(m.content || m.href, 'meta', document.title)],
+      ICONS: ['link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"], link[rel="shortcut icon"]', l => Image(l.href, 'favicon', document.title)],
+      SVG: ['svg image', img => [img.href?.baseVal, img.getAttribute('xlink:href')].filter(Boolean).map(u => Image(u, 'svg-image'))],
+      OBJECTS: ['object[data], embed[src]', obj => Image(obj.data || obj.src, 'object-embed')],
+      Meta: ['meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]', m => Image(m.content || m.href, 'meta', document.title)],
       'JSON-LD': ['script[type="application/ld+json"]', CallAndCatch(s => extractJSON(JSON.parse(s.textContent), 'jsonld'), [])]
     }
 
-    const rec = (url, type, desc = null, link = null) => {
-      const a = abs(url)
-      if (!a) return null
-      const segs = new URL(a).pathname.split('/').filter(Boolean)
-      return { pageURL: location.href, imageURL: a, type, description: desc, linkContext: link, filename: segs[segs.length - 1] || null }
-    }
     const findLink = el => { while (el && el !== document.body) { if (el.tagName === 'A' && el.href) return el.href; el = el.parentElement } return null }
     const extractJSON = (obj, type, res = []) => {
       if (!obj || typeof obj !== 'object') return res
@@ -51,7 +59,7 @@ window.wow2 = async function wow() {
           const values = typeof v === 'string' ? [v] : Array.isArray(v) ? v : v?.url ? [v.url] : []
           for (let i = 0; i < values.length; i++) {
             const u = values[i]
-            const r = rec(u, `${type}-${k}`, obj.name || obj.description)
+            const r = Image(u, `${type}-${k}`, obj.name || obj.description)
             if (r) res.push(r)
           }
         }
@@ -61,8 +69,8 @@ window.wow2 = async function wow() {
     }
 
     const unique = new Map();
-    for (let k in SelectorMap) {
-      const [sel, fn] = SelectorMap[k];
+    for (let k in ImageMap) {
+      const [sel, fn] = ImageMap[k];
       for (let el of document.querySelectorAll(sel)) {
         try {
           for (let record of fn(el))
@@ -71,155 +79,35 @@ window.wow2 = async function wow() {
         }
       }
     }
-    debugger
     return unique.values();
   }
 
-  const upgradeToOriginals = async (discovered) => {
-    const tryOriginal = (url) => {
-      const u = safeURL(url)
-      if (!u) return []
-      const patterns = [
-        { regex: /^(.+)-\d{2,5}x\d{2,5}(\.[a-z]+)$/i, replace: (m) => m[1] + m[2] },
-        { regex: /^(.+)-scaled(\.[a-z]+)$/i, replace: (m) => m[1] + m[2] },
-        { regex: /^(.+)-(thumb|thumbnail|small|medium|large|full)(\.[a-z]+)$/i, replace: (m) => m[1] + m[3] },
-      ]
-      const candidates = new Set(
-        patterns.flatMap(({ regex, replace }) => {
-          const match = u.pathname.match(regex)
-          return match ? u.origin + replace(match) : []
-        })
-      )
-      if (u.search && ['w', 'width', 'resize'].some(param => u.searchParams.has(param))) {
-        candidates.add(u.origin + u.pathname)
-      }
-      return Array.from(candidates)
+  async function upgrading(url) {
+    const u = safeURL(url)
+    const patterns = [
+      /^(.+)-\d{2,5}x\d{2,5}(\.[a-z]+)$/i,
+      /^(.+)-scaled(\.[a-z]+)$/i,
+      /^(.+)-(?:thumb|thumbnail|small|medium|large|full)(\.[a-z]+)$/i,
+    ];
+    for (let regex of patterns) {
+      const match = u.pathname.match(regex);
+      if (match) u.pathname = match[1] + match[2];
     }
-    const verifyURL = async (url) => {
-      try {
-        const res = await fetch(url, { method: 'HEAD', mode: 'cors' })
-        return res.ok
-      } catch {
-        return false
-      }
-    }
-    return Promise.all(
-      discovered.map(async (img) => {
-        const orig = (await Promise.all(tryOriginal(img.imageURL).map(async (url) => (await verifyURL(url)) ? url : null))).find(Boolean)
-        return orig ? { ...img, imageURL: orig, type: 'upgraded-original', filename: new URL(orig).pathname.split('/').pop() } : img
-      })
-    )
+    for (let param of ['w', 'width', 'resize'])
+      if (u.searchParams.has(param))
+        u.searchParams.delete(param)
+    if (u.href != url && await verifyURL(u))
+      return u.href;
+    return url;
   }
 
-  const analyzeImages = images => {
-    const cdnPatterns = [
-      { rx: /cloudinary\.com/, t: 'cloudinary', tx: /\/(c_|w_|h_)/ },
-      { rx: /imgix\.net/, t: 'imgix', tx: /[?&](w=|h=)/ },
-      { rx: /(akamai|cloudfront)/, t: 'akamai', tx: /[?&](w|h)=/ },
-    ]
-    const parseCDN = (url) => {
-      const cdn = cdnPatterns.find((p) => p.rx.test(url))
-      const hasParams = Object.values(getParams(url)).some(Boolean)
-      return {
-        isCDN: !!cdn,
-        cdnType: cdn?.t || null,
-        hasTransformations: hasParams || cdn?.tx.test(url),
-      }
-    }
-    const parseDims = (url) => {
-      const params = getParams(url)
-      if (params.w && params.h) {
-        return { width: +params.w, height: +params.h, area: +params.w * +params.h }
-      }
-      const match = url.match(/[_-](\d{2,5})[x×](\d{2,5})/i)
-      return match ? { width: +match[1], height: +match[2], area: +match[1] * +match[2] } : null
-    }
-    const analyzeUI = (url, desc = '', type = '') => {
-      const dims = parseDims(url)
-      const ratio = dims?.width / dims?.height
-      const isSmall = dims?.area < 10000
-      const isExtremeRatio = ratio > 6 || ratio < 0.15
-
-      if (type.startsWith('favicon') || type === 'css-bg' || /\.(svg|ico)$/i.test(url)) return { isUI: true, conf: 0.9 }
-      if (matchAny(url, [/\/(icons?|logos?|favicon|ui|nav|menu)\//i]) || matchAny((url + desc).toLowerCase(), ['logo', 'icon', 'favicon', 'badge', 'avatar'])) return { isUI: true, conf: 0.8 }
-      if (dims && (isExtremeRatio || isSmall)) return { isUI: true, conf: 0.7 }
-
-      return { isUI: false, conf: 0 }
-    }
-    const repeat = images.reduce((acc, img) => {
-      acc[img.imageURL] = (acc[img.imageURL] || 0) + 1
-      return acc
-    }, {})
-
-    return images.map((img) => ({
-      ...img,
-      ui: analyzeUI(img.imageURL, img.description, img.type),
-      rep: { isRepeated: repeat[img.imageURL] > 3, count: repeat[img.imageURL] },
-      cdn: parseCDN(img.imageURL),
-      dims: parseDims(img.imageURL),
-    }))
+  async function checkIfImageIsCors(url){
+    const isCors = await fetch(url, {method: "HEAD", corsPolicy: "none", mode: "cors"})
+    return isCors.headers.get("Access-Control-Allow-Origin") === "*";
   }
 
-  const filterImages = analyzed => {
-    const content = analyzed.filter(img => !(img.ui.isUI || img.rep.isRepeated))
-    const filtered = analyzed.filter(img => img.ui.isUI || img.rep.isRepeated)
-    return { content, filtered }
-  }
-
-  const scoreAndGroupImages = content => {
-    const typeScores = { 'img-src': 50, 'img-currentsrc': 45, 'meta-og:image': 70, 'meta-twitter:image': 65, 'jsonld-image': 60, 'css-bg': 10, 'upgraded-original': 100 }
-    const calcScore = (img, dims, cdn) => {
-      let s = 100
-      s += typeScores[img.type] || 0
-      if (dims) { s += Math.min(dims.area / 10000, 100); if (dims.width / dims.height >= 0.6 && dims.width / dims.height <= 2.5) s += 15 } else s -= 20
-      if (cdn.isCDN) s += cdn.hasTransformations ? -25 : 10
-      if (img.linkContext) s += 20
-      if (img.description?.length > 5) s += 15
-      if (img.imageURL.endsWith('.webp')) s += 15
-      if (/[_-](original|raw|hd|large)/.test(img.imageURL)) s += 30
-      if (/[_-](thumb|small|preview)/.test(img.imageURL)) s -= 40
-      return Math.max(0, s)
-    }
-    const normalize = url => {
-      const u = safeURL(url)
-      if (!u) return url
-      const path = u.pathname.replace(/\/upload\/[^/]+\//, '/upload/').replace(/[_-](\d{2,5}[x×]\d{2,5})/gi, '').replace(/[_-](thumb|small|medium|large|xl)/gi, '')
-      const segs = path.split('/').filter(Boolean)
-      return `${u.hostname}::${path}::${segs[segs.length - 1]}`
-    }
-    const enriched = content.map(img => ({ ...img, score: calcScore(img, img.dims, img.cdn) }))
-    const groupBy = (arr, keyFn) => {
-      const groups = new Map()
-      arr.forEach(item => {
-        const key = keyFn(item)
-        if (!groups.has(key)) groups.set(key, [])
-        groups.get(key).push(item)
-      })
-      return Array.from(groups.values())
-    }
-    const groups = groupBy(enriched, img => normalize(img.imageURL))
-    return groups
-  }
-
-  const refineResults = groups => {
-    const refined = groups.map((vars, idx) => {
-      const sorted = [...vars].sort((a, b) => b.score - a.score)
-      const best = sorted[0]
-      let conf = best.score / 200
-      if (vars.length > 1) conf *= 1.2
-      if (best.type.startsWith('meta-') || best.type.startsWith('jsonld-')) conf *= 1.15
-      if (best.linkContext && best.description) conf *= 1.1
-      conf = Math.min(conf, 1)
-      return {
-        rank: idx + 1,
-        selected: { imageURL: best.imageURL, filename: best.filename, type: best.type, description: best.description, dims: best.dims, score: Math.round(best.score), isCDN: best.cdn.isCDN },
-        alternatives: sorted.slice(1, 4).map(a => ({ imageURL: a.imageURL, dims: a.dims, score: Math.round(a.score) })),
-        confidence: Math.round(conf * 100) / 100,
-        variantCount: vars.length
-      }
-    })
-    const final = refined.sort((a, b) => (b.confidence * b.selected.score) - (a.confidence * a.selected.score)).map((item, idx) => ({ ...item, rank: idx + 1 }))
-    return final
+  function checkIfDuplicate(){
+    //todo
   }
 
   const ensureJSZip = async () => {
@@ -311,16 +199,22 @@ window.wow2 = async function wow() {
   }
 
   try {
-    const discovered = discoverImages()
-    if (!discovered.length) { console.warn('⚠️  No images found'); return }
-    const upgraded = await upgradeToOriginals(discovered)
-    const analyzed = analyzeImages(upgraded)
-    const { content, filtered } = filterImages(analyzed)
-    const groups = scoreAndGroupImages(content)
-    const refined = refineResults(groups)
-    const results = { discovered, refined, filtered }
-    window.$imagePipelineResults = results
-    window.$imageRefinementResults = refined
+    const discovered = discoverImages();
+    const upgradeds = [];
+    for (let img of discovered) {
+      const upgraded = { ...img };
+      upgraded.imageURL = await upgrading(upgraded.imageURL);
+      upgradeds.push(upgraded);
+    }
+    await Promise.all(upgradeds);
+    debugger
+    const analyzed = analyzeImages(upgradeds);
+    const { content, filtered } = filterImages(analyzed);
+    const groups = scoreAndGroupImages(content);
+    const refined = refineResults(groups);
+    const results = { discovered, refined, filtered };
+    window.$imagePipelineResults = results;
+    window.$imageRefinementResults = refined;
     debugger
     return
     window.$downloadAsZip = () => downloadAllImages(refined);
