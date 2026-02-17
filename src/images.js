@@ -1,9 +1,8 @@
-window.wow = async function wow() {
+window.wow2 = async function wow() {
   'use strict'
   const safeURL = url => { try { return new URL(url.trim(), location.href) } catch { return null } }
   const abs = url => safeURL(url)?.href
   const matchAny = (str, patterns) => patterns.some(p => (p instanceof RegExp ? p.test(str) : str.includes(p)))
-  const queryMap = (sel, fn, root = document) => Array.from(root.querySelectorAll(sel)).flatMap(fn).filter(Boolean)
   const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
   const getParams = url => { const u = safeURL(url); return u ? { w: u.searchParams.get('w') || u.searchParams.get('width'), h: u.searchParams.get('h') || u.searchParams.get('height') } : {} }
 
@@ -12,7 +11,7 @@ window.wow = async function wow() {
   const discoverImages = () => {
 
     const SelectorMap = {
-      IMG: () => queryMap('img', img => [
+      IMG: ['img', img => [
         rec(img.src, 'img-src', img.alt, findLink(img)),
         img.currentSrc !== img.src && rec(img.currentSrc, 'img-currentsrc', img.alt, findLink(img)),
         ...(img.srcset ? parseSrcset(img.srcset).map(u => rec(u, 'img-srcset', img.alt, findLink(img))) : []),
@@ -21,19 +20,19 @@ window.wow = async function wow() {
           if (!v) return []
           return a === 'data-srcset' ? parseSrcset(v).map(u => rec(u, `img-lazy-${a}`, img.alt, findLink(img))) : [rec(v, `img-lazy-${a}`, img.alt, findLink(img))]
         })
-      ]),
-      PICTURE: () => queryMap('picture source', s => s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', s.closest('picture').querySelector('img')?.alt, findLink(pic))) : []),
+      ]],
+      PICTURE: ['picture source', s => s.srcset ? parseSrcset(s.srcset).map(u => rec(u, 'picture-source', s.closest('picture').querySelector('img')?.alt, findLink(pic))) : []],
 
-      VIDEO: () => queryMap('video[poster]', vid => rec(vid.poster, 'video-poster', vid.title || vid.getAttribute('aria-label'))),
-      CSS: () => queryMap('*', el => {
+      VIDEO: ['video[poster]', vid => rec(vid.poster, 'video-poster', vid.title || vid.getAttribute('aria-label'))],
+      CSS: ['*', el => {
         const bg = getComputedStyle(el).backgroundImage
         return bg !== 'none' ? (bg.match(/url\(['"]?([^'"()]+)['"]?\)/g) || []).map(m => rec(m.replace(/url\(['"]?([^'"()]+)['"]?\)/, '$1'), 'css-bg')) : []
-      }),
-      ICONS: () => queryMap('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"], link[rel="shortcut icon"]', l => rec(l.href, 'favicon', document.title)),
-      SVG: () => queryMap('svg image', img => [img.href?.baseVal, img.getAttribute('xlink:href')].filter(Boolean).map(u => rec(u, 'svg-image'))),
-      OBJECTS: () => queryMap('object[data], embed[src]', obj => rec(obj.data || obj.src, 'object-embed')),
-      Meta: () => queryMap('meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]', m => rec(m.content || m.href, 'meta', document.title)),
-      'JSON-LD': () => queryMap('script[type="application/ld+json"]', CallAndCatch(s => extractJSON(JSON.parse(s.textContent), 'jsonld'), []))
+      }],
+      ICONS: ['link[rel="icon"], link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"], link[rel="shortcut icon"]', l => rec(l.href, 'favicon', document.title)],
+      SVG: ['svg image', img => [img.href?.baseVal, img.getAttribute('xlink:href')].filter(Boolean).map(u => rec(u, 'svg-image'))],
+      OBJECTS: ['object[data], embed[src]', obj => rec(obj.data || obj.src, 'object-embed')],
+      Meta: ['meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]', m => rec(m.content || m.href, 'meta', document.title)],
+      'JSON-LD': ['script[type="application/ld+json"]', CallAndCatch(s => extractJSON(JSON.parse(s.textContent), 'jsonld'), [])]
     }
 
     const rec = (url, type, desc = null, link = null) => {
@@ -57,12 +56,23 @@ window.wow = async function wow() {
           }
         }
       })
-      Object.values(obj).forEach(v => v && typeof v === 'object' && extractJSON(v, type, res))
-      return res
+      Object.values(obj).forEach(v => v && typeof v === 'object' && extractJSON(v, type, res));
+      return res;
     }
-    const unique = [...new Map(Object.values(SelectorMap).flatMap(fn => CallAndCatch(fn, [])).map(r => [r.imageURL, r])).values()]
 
-    return unique
+    const unique = new Map();
+    for (let k in SelectorMap) {
+      const [sel, fn] = SelectorMap[k];
+      for (let el of document.querySelectorAll(sel)) {
+        try {
+          for (let record of fn(el))
+            if (record) unique.set(record.imageURL, record);
+        } catch (err) {
+        }
+      }
+    }
+    debugger
+    return unique.values();
   }
 
   const upgradeToOriginals = async (discovered) => {
@@ -327,4 +337,4 @@ window.wow = async function wow() {
     return { discovered: [], refined: [], filtered: [] }
   }
 }
-window.wow();
+window.wow2();
