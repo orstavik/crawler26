@@ -1,19 +1,28 @@
-window.wow2 = async function wow() {
+window.wow2 = async function wow () {
   'use strict'
   const safeURL = url => { try { return new URL(url.trim(), location.href) } catch { return null } }
-  const matchAny = (str, patterns) => patterns.some(p => (p instanceof RegExp ? p.test(str) : str.includes(p)))
   const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
-  const getParams = url => { const u = safeURL(url); return u ? { w: u.searchParams.get('w') || u.searchParams.get('width'), h: u.searchParams.get('h') || u.searchParams.get('height') } : {} }
-
   const CallAndCatch = (fn, value) => { try { return fn() } catch { return value } }
   const verifyURL = async (url) => { try { return (await fetch(url, { method: 'HEAD', mode: 'cors' })).ok } catch { return false } }
+  const simpleHash = str => Array.from(str).reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) & h, 0) >>> 0
+  const extractDomain = () => location.hostname.toLowerCase().replace(/\./g, '-')
+  const extractPostSlug = () => (location.pathname.split('/').filter(Boolean).pop() || 'page').toLowerCase().replace(/\.(?:html?|php|aspx?)$/i, '').replace(/[^a-z0-9\-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'page'
+
+  const extractExt = url => {
+    try {
+      const ext = new URL(url).pathname.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return ext
+    } catch {}
+    return 'jpg'
+  }
+  const normalizeFilename = (url, rank, total) => `${extractDomain()}_${extractPostSlug()}_${String(rank).padStart(total > 99 ? 3 : 2, '0')}_${simpleHash(url).toString(36).padEnd(8, '0')}.${extractExt(url)}`
 
   const discoverImages = () => {
 
-    function Image(url, type, description, linkContext) {
-      const a = safeURL(url);
-      if (!a) return null;
-      const filename = a.pathname.split('/').pop();
+    function Image (url, type, description, linkContext) {
+      const a = safeURL(url)
+      if (!a) return null
+      const filename = a.pathname.split('/').pop()
       return {
         pageURL: location.href,
         imageURL: a.href,
@@ -21,7 +30,7 @@ window.wow2 = async function wow() {
         description,
         linkContext,
         filename,
-      };
+      }
     }
 
     const ImageMap = {
@@ -64,52 +73,53 @@ window.wow2 = async function wow() {
           }
         }
       })
-      Object.values(obj).forEach(v => v && typeof v === 'object' && extractJSON(v, type, res));
-      return res;
+      Object.values(obj).forEach(v => v && typeof v === 'object' && extractJSON(v, type, res))
+      return res
     }
 
-    const unique = new Map();
+    const unique = new Map()
     for (let k in ImageMap) {
-      const [sel, fn] = ImageMap[k];
+      const [sel, fn] = ImageMap[k]
       for (let el of document.querySelectorAll(sel)) {
         try {
           for (let record of fn(el))
-            if (record) unique.set(record.imageURL, record);
+            if (record) unique.set(record.imageURL, record)
         } catch (err) {
         }
       }
     }
-    return unique.values();
+    return unique.values()
   }
 
-  async function upgrading(url) {
+  async function upgrading (url) {
     const u = safeURL(url)
     const patterns = [
       /^(.+)-\d{2,5}x\d{2,5}(\.[a-z]+)$/i,
       /^(.+)-scaled(\.[a-z]+)$/i,
       /^(.+)-(?:thumb|thumbnail|small|medium|large|full)(\.[a-z]+)$/i,
-    ];
+    ]
     for (let regex of patterns) {
-      const match = u.pathname.match(regex);
-      if (match) u.pathname = match[1] + match[2];
+      const match = u.pathname.match(regex)
+      if (match) u.pathname = match[1] + match[2]
     }
-    for (let param of ['w', 'width', 'resize'])
-      if (u.searchParams.has(param))
-        u.searchParams.delete(param)
+    // for (let param of ['w', 'width', 'resize'])
+    //   if (u.searchParams.has(param))
+    //     u.searchParams.delete(param)
+    ['w', 'width', 'resize'].forEach(param => u.searchParams.delete(param))
     if (u.href != url && await verifyURL(u))
-      return u.href;
-    return url;
+      return u.href
+    return url
   }
 
-  async function checkIfImageIsCors(url){
-    const isCors = await fetch(url, {method: "HEAD", corsPolicy: "none", mode: "cors"})
-    return isCors.headers.get("Access-Control-Allow-Origin") === "*";
+  function checkIfImageIsCors (url) {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => resolve(true)
+      img.onerror = () => resolve(false)
+      img.src = url
+    })
   }
-
-  function checkIfDuplicate(){
-    //todo
-  }
-
   const ensureJSZip = async () => {
     if (window.JSZip) return true
     return new Promise((resolve, reject) => {
@@ -123,21 +133,6 @@ window.wow2 = async function wow() {
     })
   }
 
-  const simpleHash = str => Array.from(str).reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) & h, 0) >>> 0
-  const extractDomain = () => location.hostname.toLowerCase().replace(/\./g, '-')
-  const extractPostSlug = () => {
-    const segs = location.pathname.split('/').filter(Boolean)
-    const last = segs[segs.length - 1] || 'index'
-    return (last.replace(/\.(html?|php|aspx?)$/i, '').toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 60)) || 'page'
-  }
-  const extractExt = url => {
-    try {
-      const ext = new URL(url).pathname.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return ext
-    } catch { }
-    return 'jpg'
-  }
-  const normalizeFilename = (url, rank, total) => `${extractDomain()}_${extractPostSlug()}_${String(rank).padStart(total > 99 ? 3 : 2, '0')}_${simpleHash(url).toString(36).padEnd(8, '0')}.${extractExt(url)}`
 
   const downloadAsZip = async (blobs, zipName = 'images.zip', manifest = null) => {
     await ensureJSZip()
@@ -148,7 +143,7 @@ window.wow2 = async function wow() {
     const url = URL.createObjectURL(zipBlob)
     const a = Object.assign(document.createElement('a'), { href: url, download: zipName, style: 'display:none' })
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 100)
+    setTimeout(() => URL.revokeObjectURL(url), 300)
     return { success: true, compressedSize: zipBlob.size, originalSize: blobs.reduce((s, i) => s + i.size, 0) }
   }
 
@@ -160,8 +155,9 @@ window.wow2 = async function wow() {
       try {
         const res = await fetch(url, { mode: 'cors', headers: { 'Accept': 'image/*,*/*;q=0.8' } })
         if (!res.ok) throw 0
+        if (!res.headers.get('Content-Type')?.startsWith('image/')) throw 0
         const blob = await res.blob()
-        blobs.push({ filename: normalizeFilename(url, c.rank || i + 1, candidates.length), blob, size: blob.size, originalUrl: url })
+        blobs.push({ filename: normalizeFilename(url, c.rank || i + 1, candidates.length), blob, size: blob.size, originalUrl: url, candidates: c })
       } catch { failed.count++ }
     }
     if (!blobs.length) return { total: candidates.length, successful: 0, failed: failed.count }
@@ -173,7 +169,7 @@ window.wow2 = async function wow() {
       sourcePathname: location.pathname,
       totalImages: blobs.length,
       images: blobs.map((blob, idx) => {
-        const c = candidates.find(c => (c.selected?.imageURL || c.imageURL) === blob.originalUrl) || candidates[idx]
+        const c = blob.candidates
         return {
           rank: c?.rank || idx + 1,
           filename: blob.filename,
@@ -198,37 +194,30 @@ window.wow2 = async function wow() {
     }
   }
 
-  try {
-    const discovered = discoverImages();
-    const upgradeds = [];
-    for (let img of discovered) {
-      const upgraded = { ...img };
-      upgraded.imageURL = await upgrading(upgraded.imageURL);
-      upgradeds.push(upgraded);
+  async function main () {
+    try {
+      const discovered = discoverImages()
+      //   const upgradeds = [];
+      //   for (let img of discovered) {
+      //     const upgraded = { ...img };
+      //     upgraded.imageURL = await upgrading(upgraded.imageURL);
+      //     upgraded.isCors = await checkIfImageIsCors(upgraded.imageURL);
+      //     upgradeds.push(upgraded);
+      //   }
+      const upgradeds = await Promise.all(discovered.map(async img => {
+        try {
+          const upgradedURL = await upgrading(img.imageURL)
+          return { ...img, imageURL: upgradedURL, isCors: await checkIfImageIsCors(upgradedURL) }
+        } catch { return { ...img, isCors: false } }
+      }))
+      window.$imagePipelineResults = { discovered, upgraded: upgradeds }
+      window.$downloadAsZip = () => downloadAllImages(upgradeds)
+      return { discovered, upgraded: upgradeds }
+    } catch (e) {
+      console.error('❌ Pipeline failed:', e)
+      return { discovered: [], upgraded: [] }
     }
-    await Promise.all(upgradeds);
-    debugger
-    const analyzed = analyzeImages(upgradeds);
-    const { content, filtered } = filterImages(analyzed);
-    const groups = scoreAndGroupImages(content);
-    const refined = refineResults(groups);
-    const results = { discovered, refined, filtered };
-    window.$imagePipelineResults = results;
-    window.$imageRefinementResults = refined;
-    debugger
-    return
-    window.$downloadAsZip = () => downloadAllImages(refined);
-    (async () => {
-      try {
-        await downloadAllImages(refined)
-      } catch (e) {
-        console.error('Auto-download failed:', e)
-      }
-    })()
-    return results
-  } catch (e) {
-    console.error('❌ Pipeline failed:', e)
-    return { discovered: [], refined: [], filtered: [] }
   }
+  main()
 }
-window.wow2();
+window.wow2()
