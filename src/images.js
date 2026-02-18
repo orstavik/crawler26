@@ -4,18 +4,6 @@ window.wow2 = async function wow () {
   const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
   const CallAndCatch = (fn, value) => { try { return fn() } catch { return value } }
   const verifyURL = async (url) => { try { return (await fetch(url, { method: 'HEAD', mode: 'cors' })).ok } catch { return false } }
-  const simpleHash = str => Array.from(str).reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) & h, 0) >>> 0
-  const extractDomain = () => location.hostname.toLowerCase().replace(/\./g, '-')
-  const extractPostSlug = () => (location.pathname.split('/').filter(Boolean).pop() || 'page').toLowerCase().replace(/\.(?:html?|php|aspx?)$/i, '').replace(/[^a-z0-9\-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'page'
-
-  const extractExt = url => {
-    try {
-      const ext = new URL(url).pathname.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return ext
-    } catch {}
-    return 'jpg'
-  }
-  const normalizeFilename = (url, rank, total) => `${extractDomain()}_${extractPostSlug()}_${String(rank).padStart(total > 99 ? 3 : 2, '0')}_${simpleHash(url).toString(36).padEnd(8, '0')}.${extractExt(url)}`
 
   const discoverImages = () => {
 
@@ -93,6 +81,7 @@ window.wow2 = async function wow () {
 
   async function upgrading (url) {
     const u = safeURL(url)
+    if (u == null) return null;
     const patterns = [
       /^(.+)-\d{2,5}x\d{2,5}(\.[a-z]+)$/i,
       /^(.+)-scaled(\.[a-z]+)$/i,
@@ -102,9 +91,6 @@ window.wow2 = async function wow () {
       const match = u.pathname.match(regex)
       if (match) u.pathname = match[1] + match[2]
     }
-    // for (let param of ['w', 'width', 'resize'])
-    //   if (u.searchParams.has(param))
-    //     u.searchParams.delete(param)
     ['w', 'width', 'resize'].forEach(param => u.searchParams.delete(param))
     if (u.href != url && await verifyURL(u))
       return u.href
@@ -157,7 +143,7 @@ window.wow2 = async function wow () {
         if (!res.ok) throw 0
         if (!res.headers.get('Content-Type')?.startsWith('image/')) throw 0
         const blob = await res.blob()
-        blobs.push({ filename: normalizeFilename(url, c.rank || i + 1, candidates.length), blob, size: blob.size, originalUrl: url, candidates: c })
+        blobs.push({ filename: btoa(url), blob, size: blob.size, originalUrl: url, candidates: c })
       } catch { failed.count++ }
     }
     if (!blobs.length) return { total: candidates.length, successful: 0, failed: failed.count }
@@ -205,10 +191,8 @@ window.wow2 = async function wow () {
       //     upgradeds.push(upgraded);
       //   }
       const upgradeds = await Promise.all(discovered.map(async img => {
-        try {
           const upgradedURL = await upgrading(img.imageURL)
-          return { ...img, imageURL: upgradedURL, isCors: await checkIfImageIsCors(upgradedURL) }
-        } catch { return { ...img, isCors: false } }
+          return { ...img, imageURL: upgradedURL, isCors: upgradedURL && await checkIfImageIsCors(upgradedURL) }
       }))
       window.$imagePipelineResults = { discovered, upgraded: upgradeds }
       window.$downloadAsZip = () => downloadAllImages(upgradeds)

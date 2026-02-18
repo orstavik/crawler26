@@ -105,21 +105,15 @@
       return args.length ? `$gridItem(${args.join(',')})` : null
     },
     blockItem: ({
-      marginTop, marginRight, marginBottom, marginLeft,
-      width, height, maxWidth, float
-    }, el) => {
+      margin,
+      width, height, float,
+      // minWidth, minHeight, maxWidth, maxHeight : todo
+    }) => {
       let args = []
-      const m = [marginTop, marginRight, marginBottom, marginLeft].map(toLen)
-      if (m.some(v => v !== '0')) {
-        if (m.every(v => v === m[0])) args.push(`margin(${m[0]})`)
-        else if (m[0] === m[2] && m[1] === m[3]) args.push(`margin(${m[0]},${m[1]})`)
-        else args.push(`margin(${m.join(',')})`)
-      }
-      const parentWidth = el.parentElement ? parseFloat(getComputedStyle(el.parentElement).width) : window.innerWidth
-      const isImg = el.tagName === 'IMG' || el.tagName === 'SVG'
-      if (el.style.width || isImg || (parseFloat(width) > 0 && parseFloat(width) < parentWidth * 0.98)) args.push(`inlineSize(${toLen(width)})`)
-      if (el.style.height || isImg || (parseFloat(height) > 0 && parseFloat(height) < 1000)) args.push(`blockSize(${toLen(height)})`)
-      if (maxWidth !== 'none') args.push(`inlineSize(_,_,${toLen(maxWidth)})`)
+      const m = margin.split(' ').map(toLen)
+      args.push(`margin(${m.join(',')})`)
+      args.push(`size(${toLen(width)},${toLen(height)})`)
+      //todo : complex quering for size
       if (float === 'left' || float === 'inline-start') args.push('floatStart')
       else if (float === 'right' || float === 'inline-end') args.push('floatEnd')
       return args.length ? `$blockItem(${args.join(',')})` : null
@@ -142,14 +136,14 @@
       return args.length ? `$paragraph(${args.join(',')})` : null
     },
     Border: ({
-      borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth,
-      borderTopStyle, borderRightStyle, borderBottomStyle, borderLeftStyle,
-      borderTopColor, borderRightColor, borderBottomColor, borderLeftColor,
+      borderWidth,
+      borderStyle,
+      borderColor,
       borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius
     }) => {
-      const w = [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth].map(toLen)
-      const st = [borderTopStyle, borderRightStyle, borderBottomStyle, borderLeftStyle]
-      const c = [borderTopColor, borderRightColor, borderBottomColor, borderLeftColor].map(toColor)
+      const w = borderWidth.split(' ').map(toLen)
+      const st = borderStyle.split(' ')
+      const c = borderColor.split(' ').map(toColor)
       const r = [borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius].map(toLen)
       if (w.every(v => v === '0') && r.every(v => v === '0')) return null
       let args = []
@@ -212,12 +206,12 @@
       if (zIndex !== 'auto') res += `$zIndex(${zIndex})`
       return res
     },
-    TextShadow: ({ textShadow }) => textShadow && spaceToComma(textShadow) ? `$textShadow(${spaceToComma(textShadow)})` : null,
-    BoxShadow: ({ boxShadow }) => boxShadow && spaceToComma(boxShadow) ? `$boxShadow(${spaceToComma(boxShadow)})` : null,
+    TextShadow: ({ textShadow }) => textShadow && spaceToComma(textShadow) ? `$textShadow(${spaceToComma(textShadow)})` : undefined,
+    BoxShadow: ({ boxShadow }) => boxShadow && spaceToComma(boxShadow) ? `$boxShadow(${spaceToComma(boxShadow)})` : undefined,
     Transform: ({ transform }) => {
-      if (!transform || transform === 'none') return null
+      if (!transform || transform === 'none') return;
       const converted = spaceToComma(transform)
-      return converted ? `$transform(${converted})` : null
+      return converted ? `$transform(${converted})` : undefined;
     }
   }
 
@@ -227,9 +221,7 @@
     const shortsAdded = new Set()
     for (const snap of elSnap) {
       for (const [name, fn] of Object.entries(REVERSE)) {
-        const result = fn.length === 2
-          ? fn(snap.cs, snap.el)
-          : fn(snap.cs)
+        const result = fn(snap.cs)
         if (result) {
           shortsAdded.add(result)
           snap.el.classList.add(result)
