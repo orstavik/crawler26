@@ -2,7 +2,6 @@
 const safeURL = url => { try { return new URL(url.trim(), location.href) } catch { return null } }
 const parseSrcset = str => str.split(',').map(p => p.trim().split(/\s+/)[0]).filter(Boolean)
 const CallAndCatch = (fn, value) => { try { return fn() } catch { return value } }
-// const verifyURL = async (url, mode) => { try { return (await fetch(url, { method: 'HEAD', mode }).ok)} catch { return false } }
 const safeFetch = async (url, method, mode) => {
   try {
     const res = await fetch(url, { method, mode })
@@ -13,20 +12,6 @@ const safeFetch = async (url, method, mode) => {
 }
 
 const discoverResources = () => {
-  // function Image (url, type, description, linkContext) {
-  //   const a = safeURL(url)
-  //   if (!a) return null
-  //   const filename = a.pathname.split('/').pop()
-  //   return {
-  //     pageURL: location.href,
-  //     imageURL: a.href,
-  //     type,
-  //     description,
-  //     linkContext,
-  //     filename,
-  //   }
-  // }
-
   function Resource (url, kind, type, description, linkContext) {
     const a = safeURL(url)
     if (!a) return null
@@ -174,8 +159,5 @@ window.resources = {
   safeFetch,
   discoverResources,
   upgrading,
-  ensureJSZip,
-  downloadAsZip,
-  downloadAll,
   runPipeline: main,
 }

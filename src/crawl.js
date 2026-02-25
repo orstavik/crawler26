@@ -26,9 +26,8 @@
   ))
 
   const downloadAsZip = async (blobs, zipName = 'resources.zip', manifest = null) => {
-    const jsZipModule = await import('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')
-    const JSZip = jsZipModule.default
-    const zip = new JSZip()
+    const { default: JSZip } = await import('https://cdn.skypack.dev/@progress/jszip-esm');
+    const zip = new JSZip();
     for (const item of blobs) {
       const contentType = item.candidates?.contentType ?? (await getContentType(item.originalUrl, 'cors'))?.contentType
       const folder = contentType?.startsWith('text/html') ? 'pages' : 'resources'
@@ -109,7 +108,7 @@
         }
       }
     }
-    window.$downloadAsZip = () => downloadAll(upgraded)
+    window.$downloadAsZip = () => downloadAll(Object.values(upgraded))
     console.log('Crawled resources:', upgraded)
   }
   main()

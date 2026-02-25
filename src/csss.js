@@ -21,40 +21,46 @@ const toColor = rgb => {
   if (!m) return null
   const [r, g, b, a] = m.slice(1, 5).map((v, i) => i < 3 ? +v : v ? parseFloat(v) : 1)
   if (a === 0) return null
-  return a < 1 ? `#rgba(${r},${g},${b},${a})` : `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`
+  const hex = [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')
+  if (a < 1) {
+    const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0')
+    return `#${hex}${alphaHex}`
+  }
+  return `#${hex}`
 }
-const spaceToComma = val =>
-  val && val !== 'none'
-    ? val
-      .split(/\s*,\s*/)
-      .map(shadow =>
-        shadow
-          .trim()
-          .split(/\s+/)
-          .map(v => v.includes('px') ? toLen(v) : v.includes('rgb') ? toColor(v) : v)
-          .filter(Boolean)
-          .join(',')
-      )
-      .filter(Boolean)
-      .join(',')
-    : ''
 
-// const spaceToComma = val =>
-//   val && val !== 'none'
-//     ? val
-//       // Split by commas NOT inside parentheses
-//       .split(/,\s*(?![^(]*\))/)
-//       .map(shadow =>
-//         shadow
-//           .trim()
-//           .split(/\s+/)
-//           .map(v => v.includes('px') ? toLen(v) : v.includes('rgb') ? toColor(v) : v)
-//           .filter(Boolean)
-//           .join(',')
-//       )
-//       .filter(Boolean)
-//       .join(',') // join layers back with commas
-//     : '';
+const spaceToComma = val => {
+  if (!val || val === 'none') return ''
+  const tokens = val.trim().match(/[^\s(]+\([^)]*\)|[^\s]+/g) || []
+  return tokens
+    .map(v => v.includes('px') ? toLen(v) : v.includes('rgb') ? toColor(v) : v)
+    .filter(Boolean)
+    .join(',')
+}
+
+const toSize = (w, h, minW, maxW, minH, maxH) => {
+  const len = toLen
+  const wL = len(w), hL = len(h)
+  const normMin = v => (v && parseFloat(v) > 0) ? len(v) : null
+  const normMax = v => (v && v !== 'none' && parseFloat(v) < 1e6) ? len(v) : null
+  const mnW = normMin(minW), mxW = normMax(maxW)
+  const mnH = normMin(minH), mxH = normMax(maxH)
+  const wArgs = [mnW || '_', wL, mxW || '_']
+  const hArgs = [mnH || '_', hL, mxH || '_']
+  if (mnW || mxW || mnH || mxH) {
+    if ((mnW || mxW) && (mnH || mxH))
+      return `size(${[...wArgs, ...hArgs]})`
+    if (mnW || mxW) {
+      const wPart = `inlineSize(${wArgs})`
+      return (hL === '0' || hL === 'auto') ? wPart : `${wPart},size(${wL},${hL})`
+    }
+    const hPart = `blockSize(${hArgs})`
+    return (wL === '0' || wL === 'auto') ? hPart : `size(${wL}),${hPart}`
+  }
+  if (hL === '0' || hL === 'auto')
+    return (wL === '0' || wL === 'auto') ? null : `size(${wL})`
+  return `size(${wL},${hL})`
+}
 
 const REVERSE = {
   Grid: ({
@@ -104,7 +110,8 @@ const REVERSE = {
     flexGrow,
     flexShrink,
     flexBasis,
-    alignSelf
+    alignSelf,
+    width, height, minWidth, maxWidth, minHeight, maxHeight
   }) => {
     let args = []
     if (flexGrow !== '0') args.push(`grow(${flexGrow})`)
@@ -114,6 +121,8 @@ const REVERSE = {
       const mapped = alignSelf.replace('flex-', '')
       args.push(`self${mapped.charAt(0).toUpperCase() + mapped.slice(1)}`)
     }
+    const s = toSize(width, height, minWidth, maxWidth, minHeight, maxHeight)
+    if (s) args.push(s)
     return args.length ? `$flexItem(${args.join(',')})` : null
   },
   gridItem: ({
@@ -121,7 +130,8 @@ const REVERSE = {
     gridColumnEnd,
     gridRowStart,
     gridRowEnd,
-    justifySelf
+    justifySelf,
+    width, height, minWidth, maxWidth, minHeight, maxHeight
   }) => {
     let args = []
     if (gridColumnStart !== 'auto' || gridColumnEnd !== 'auto')
@@ -130,18 +140,20 @@ const REVERSE = {
       args.push(`row(${gridRowStart === 'auto' ? '_' : gridRowStart},${gridRowEnd === 'auto' ? '_' : gridRowEnd})`)
     if (justifySelf !== 'auto' && justifySelf !== 'stretch')
       args.push(`self${justifySelf.charAt(0).toUpperCase() + justifySelf.slice(1)}`)
+    const s = toSize(width, height, minWidth, maxWidth, minHeight, maxHeight)
+    if (s) args.push(s)
     return args.length ? `$gridItem(${args.join(',')})` : null
   },
   blockItem: ({
     margin,
     width, height, float,
-    // minWidth, minHeight, maxWidth, maxHeight : todo
+    minWidth, minHeight, maxWidth, maxHeight
   }) => {
     let args = []
     const m = margin.split(' ').map(toLen)
     args.push(`margin(${m.join(',')})`)
-    args.push(`size(${toLen(width)},${toLen(height)})`)
-    //todo : complex quering for size
+    const s = toSize(width, height, minWidth, maxWidth, minHeight, maxHeight)
+    if (s) args.push(s)
     if (float === 'left' || float === 'inline-start') args.push('floatStart')
     else if (float === 'right' || float === 'inline-end') args.push('floatEnd')
     return args.length ? `$blockItem(${args.join(',')})` : null
@@ -201,7 +213,7 @@ const REVERSE = {
   },
   Bg: ({ backgroundColor }) => {
     const c = toColor(backgroundColor)
-    return (c && c !== '#rgba(0,0,0,0)') ? `$bgColor(${c})` : null
+    return (c && c !== '#00000000') ? `$bgColor(${c})` : null
   },
   Color: ({ color }) => {
     const c = toColor(color)
@@ -235,12 +247,26 @@ const REVERSE = {
     if (zIndex !== 'auto') res += `$zIndex(${zIndex})`
     return res
   },
-  TextShadow: ({ textShadow }) => textShadow.split(/,\s*(?![^(]*\))/).map(s => s.trim() && spaceToComma(s) ? `$textShadow(${spaceToComma(s)})` : undefined).filter(Boolean).join(',') || null,
-  BoxShadow: ({ boxShadow }) => boxShadow.split(/,\s*(?![^(]*\))/).map(s => s.trim() && spaceToComma(s) ? `$boxShadow(${spaceToComma(s)})` : undefined).filter(Boolean).join(',') || null,
+  TextShadow: ({ textShadow }) => {
+    if (!textShadow || textShadow === 'none') return null
+    const layers = textShadow.split(/,\s*(?![^(]*\))/)
+      .map(s => spaceToComma(s.trim()))
+      .filter(Boolean)
+    return layers.length ? layers.map(l => `$textShadow(${l})`).join('') : null
+  },
+  BoxShadow: ({ boxShadow }) => {
+    (!boxShadow || boxShadow === 'none') ? null :
+      (boxShadow.split(/,\s*(?![^(]*\))/)
+        .map(s => {
+          const i = /\binset\b/.test(s)
+          const a = spaceToComma(s.replace(/\binset\b/, '').trim())
+          return a && `$${i ? 'boxShadowInset' : 'boxShadow'}(${a})`
+        })
+        .filter(Boolean).join('') || null)
+  },
   Transform: ({ transform }) => {
     if (!transform || transform === 'none') return
-    const converted = spaceToComma(transform)
-    return converted ? `$transform(${converted})` : undefined
+    return spaceToComma(transform) ? `$transform(${converted})` : undefined
   }
 }
 
@@ -258,21 +284,21 @@ function main () {
     }
   }
   console.log(`Done. Found ${shortsAdded.size} shorts.`)
-  let csssStyle = document.getElementById('csss_omg')
-  if (!csssStyle) {
-    csssStyle = document.createElement('style')
-    csssStyle.id = 'csss_omg'
-    document.head.appendChild(csssStyle)
-  } else {
-    csssStyle.textContent = ''
-    if (csssStyle.shorts) csssStyle.shorts = new Set()
-  }
+  // let csssStyle = document.getElementById('csss_omg')
+  // if (!csssStyle) {
+  //   csssStyle = document.createElement('style')
+  //   csssStyle.id = 'csss_omg'
+  //   document.head.appendChild(csssStyle)
+  // } else {
+  //   csssStyle.textContent = ''
+  //   if (csssStyle.shorts) csssStyle.shorts = new Set()
+  // }
   document.querySelectorAll('style:not(#csss_omg), link[rel="stylesheet"]').forEach(e => e.remove())
-  if (!document.querySelector('script[src*="auto.js"]')) {
-    const s = document.createElement('script')
-    s.src = 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/auto.js?style=%23csss_omg&interval=400'
-    s.type = 'module'
-    document.head.appendChild(s)
-  }
+  // if (!document.querySelector('script[src*="auto.js"]')) {
+  //   const s = document.createElement('script')
+  //   s.src = './auto.js?interval=400'
+  //   s.type = 'module'
+  //   document.head.appendChild(s)
+  // }
 }
 window.minifyCSS = main
