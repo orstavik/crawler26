@@ -1,6 +1,6 @@
 (async function crawlController () {
   'use strict'
-  let resources
+  let resources;
   resources = window.resources
 
   function mergeHead (doc) {
@@ -17,7 +17,8 @@
     mergeHead(doc)
     await waitForStyles(document.head)
     document.body.replaceWith(doc.body)
-    try { window.minifyCSS && window.minifyCSS() } catch (e) { console.warn('minifyCSS failed:', e) }
+    window.minifyCSS()
+    await window.initCSSS()
     return await resources.runPipeline()
   };
 
@@ -93,7 +94,9 @@
 
   async function main () {
     const visited = new Set()
-    window.minifyCSS && window.minifyCSS()
+    window.minifyCSS()        
+    await window.initCSSS()   
+    
     const upgraded = await resources.runPipeline()
     upgraded[location.href] = { resourceURL: location.href, contentType: 'text/html', isCors: true, html: document.documentElement.outerHTML, ...upgraded[location.href] }
     visited.add(location.href)

@@ -38,11 +38,10 @@ const spaceToComma = val => {
     .join(',')
 }
 
-const toSize = (w, h, minW, maxW, minH, maxH) => {
-  const len = toLen
-  const wL = len(w), hL = len(h)
-  const normMin = v => (v && parseFloat(v) > 0) ? len(v) : null
-  const normMax = v => (v && v !== 'none' && parseFloat(v) < 1e6) ? len(v) : null
+function toSize(w, h, minW, maxW, minH, maxH) {
+  const wL = toLen(w), hL = toLen(h)
+  const normMin = v => (v && parseFloat(v) > 0) ? toLen(v) : null
+  const normMax = v => (v && v !== 'none' && parseFloat(v) < 1e6) ? toLen(v) : null
   const mnW = normMin(minW), mxW = normMax(maxW)
   const mnH = normMin(minH), mxH = normMax(maxH)
   const wArgs = [mnW || '_', wL, mxW || '_']
@@ -255,19 +254,68 @@ const REVERSE = {
     return layers.length ? layers.map(l => `$textShadow(${l})`).join('') : null
   },
   BoxShadow: ({ boxShadow }) => {
-    (!boxShadow || boxShadow === 'none') ? null :
-      (boxShadow.split(/,\s*(?![^(]*\))/)
-        .map(s => {
-          const i = /\binset\b/.test(s)
-          const a = spaceToComma(s.replace(/\binset\b/, '').trim())
-          return a && `$${i ? 'boxShadowInset' : 'boxShadow'}(${a})`
-        })
-        .filter(Boolean).join('') || null)
+    if (!boxShadow || boxShadow === 'none') return null
+    return boxShadow.split(/,\s*(?![^(]*\))/)
+      .map(s => {
+        const i = /\binset\b/.test(s)
+        const a = spaceToComma(s.replace(/\binset\b/, '').trim())
+        return a && `$${i ? 'boxShadowInset' : 'boxShadow'}(${a})`
+      })
+      .filter(Boolean)
+      .join('') || null
   },
   Transform: ({ transform }) => {
     if (!transform || transform === 'none') return
-    return spaceToComma(transform) ? `$transform(${converted})` : undefined
+    return spaceToComma(transform) ? `$transform(${spaceToComma(transform)})` : undefined
   }
+}
+
+async function initCSSS() {
+  const CSSS = await import('https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js')
+  const parse = CSSS.memoize(CSSS.parse, 333)
+  
+  const getOrCreateStyle = () => 
+    document.getElementById('csss_omg') ??
+    document.head.appendChild(Object.assign(document.createElement('style'), { id: 'csss_omg' }))
+  
+  const initShorts = style => 
+    style.shorts ??= new Set([...style.sheet?.cssRules ?? []].map(CSSS.extractShort).filter(Boolean))
+  
+  const findDollars = () => 
+    new Set([...document.querySelectorAll('[class*="$"]')].flatMap(el => 
+      [...el.classList].filter(c => c.includes('$'))
+    ))
+  
+  const insertRules = (style, shorts) => 
+    shorts.forEach(short => {
+      try {
+        parse(short).forEach(({ cssText, rule }) => {
+          if (!rule || !style.shorts.has(rule)) {
+            style.sheet.insertRule(cssText, style.sheet.cssRules.length)
+            rule && style.shorts.add(rule)
+          }
+        })
+      } catch (err) { console.warn(`Parse failed: ${short}`, err) }
+    })
+  
+  const processNew = style => {
+    const newShorts = [...findDollars()].filter(s => !style.shorts.has(s))
+    if (!newShorts.length) return
+    insertRules(style, newShorts)
+    newShorts.forEach(s => style.shorts.add(s))
+  }
+  
+  const style = getOrCreateStyle()
+  initShorts(style)
+  processNew(style)
+// // // todo return style here and when initcss is callled.
+// //   // todo: move this into crawl.js  and dont use mutation observer when not needed (like in crawlController)
+//   new MutationObserver(() => processNew(style)).observe(document.documentElement, {
+//     attributes: true, attributeFilter: ['class'], subtree: true, childList: true
+//   })
+//   setTimeout(() => processNew(style), 400);
+  console.log('CSSS auto-update initialized')
+  return style
 }
 
 function main () {
@@ -284,21 +332,11 @@ function main () {
     }
   }
   console.log(`Done. Found ${shortsAdded.size} shorts.`)
-  // let csssStyle = document.getElementById('csss_omg')
-  // if (!csssStyle) {
-  //   csssStyle = document.createElement('style')
-  //   csssStyle.id = 'csss_omg'
-  //   document.head.appendChild(csssStyle)
-  // } else {
-  //   csssStyle.textContent = ''
-  //   if (csssStyle.shorts) csssStyle.shorts = new Set()
-  // }
   document.querySelectorAll('style:not(#csss_omg), link[rel="stylesheet"]').forEach(e => e.remove())
-  // if (!document.querySelector('script[src*="auto.js"]')) {
-  //   const s = document.createElement('script')
-  //   s.src = './auto.js?interval=400'
-  //   s.type = 'module'
-  //   document.head.appendChild(s)
+  // if (!window.csssInitialized) {
+  //   window.csssInitialized = true
+  //   initCSSS()
   // }
 }
 window.minifyCSS = main
+window.initCSSS = initCSSS 
