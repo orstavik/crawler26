@@ -1,5 +1,7 @@
+import { memoize, parse as parseRaw } from 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js';
 
-'use strict'
+const parse = memoize(parseRaw, 3333);
+
 const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
 
 const toLen = (pxStr) => {
@@ -270,55 +272,33 @@ const REVERSE = {
   }
 }
 
-async function initCSSS() {
-  const CSSS = await import('https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js')
-  const parse = CSSS.memoize(CSSS.parse, 333)
-  
-  const getOrCreateStyle = () => 
-    document.getElementById('csss_omg') ??
-    document.head.appendChild(Object.assign(document.createElement('style'), { id: 'csss_omg' }))
-  
-  const initShorts = style => 
-    style.shorts ??= new Set([...style.sheet?.cssRules ?? []].map(CSSS.extractShort).filter(Boolean))
-  
-  const findDollars = () => 
-    new Set([...document.querySelectorAll('[class*="$"]')].flatMap(el => 
-      [...el.classList].filter(c => c.includes('$'))
-    ))
-  
-  const insertRules = (style, shorts) => 
-    shorts.forEach(short => {
-      try {
-        parse(short).forEach(({ cssText, rule }) => {
-          if (!rule || !style.shorts.has(rule)) {
-            style.sheet.insertRule(cssText, style.sheet.cssRules.length)
-            rule && style.shorts.add(rule)
-          }
-        })
-      } catch (err) { console.warn(`Parse failed: ${short}`, err) }
-    })
-  
-  const processNew = style => {
-    const newShorts = [...findDollars()].filter(s => !style.shorts.has(s))
-    if (!newShorts.length) return
-    insertRules(style, newShorts)
-    newShorts.forEach(s => style.shorts.add(s))
+function initCSSS(newShorts) {
+  const style = Object.assign(document.createElement('style'), { id: 'csss_omg' });
+  style.shorts = new Set();
+  for (let short of newShorts) {
+    try {
+      for (let { cssText, rule } of parse(short)) {
+        if (style.shorts.has(rule))
+          continue;
+        style.sheet.insertRule(cssText, style.sheet.cssRules.length)
+        style.shorts.add(rule)
+      }
+    } catch (err) {
+      console.warn(`Parse failed: ${short}`, err)
+    }
   }
-  
-  const style = getOrCreateStyle()
-  initShorts(style)
-  processNew(style)
-// // // todo return style here and when initcss is callled.
-// //   // todo: move this into crawl.js  and dont use mutation observer when not needed (like in crawlController)
-//   new MutationObserver(() => processNew(style)).observe(document.documentElement, {
-//     attributes: true, attributeFilter: ['class'], subtree: true, childList: true
-//   })
-//   setTimeout(() => processNew(style), 400);
-  console.log('CSSS auto-update initialized')
-  return style
+  return style;
 }
 
-function main () {
+function waitForStyles(root) {
+  return Promise.all(
+    [...root.querySelectorAll('link[rel="stylesheet"]')]
+      .filter(l => !l.sheet)
+      .map(l => new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 3000) })));
+}
+
+async function minifyCSS() {
+  await waitForStyles(document.head);
   const all = [document.body, ...document.body.querySelectorAll('*:not(script,style,meta,link,head,title,br)')]
   const elSnap = all.map(el => ({ el, cs: getComputedStyle(el) }))
   const shortsAdded = new Set()
@@ -331,12 +311,10 @@ function main () {
       }
     }
   }
-  console.log(`Done. Found ${shortsAdded.size} shorts.`)
-  document.querySelectorAll('style:not(#csss_omg), link[rel="stylesheet"]').forEach(e => e.remove())
-  // if (!window.csssInitialized) {
-  //   window.csssInitialized = true
-  //   initCSSS()
-  // }
+  return shortsAdded;
 }
-window.minifyCSS = main
-window.initCSSS = initCSSS 
+
+export {
+  minifyCSS,
+  initCSSS
+}
