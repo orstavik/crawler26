@@ -17,18 +17,22 @@ const toLen = (pxStr) => {
   }
   return (Math.abs(px - Math.round(px)) < 0.05 ? Math.round(px) : px.toFixed(3).replace(/\.?0+$/, "")) + 'px'
 }
-const toColor = rgb => {
-  if (!rgb || /^(currentcolor|transparent|rgba\(0, 0, 0, 0\))$/.test(rgb)) return null
-  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
-  if (!m) return null
-  const [r, g, b, a] = m.slice(1, 5).map((v, i) => i < 3 ? +v : v ? parseFloat(v) : 1)
-  if (a === 0) return null
+
+function toColor(rgb) {
+  if (!rgb || /^(currentcolor|transparent|rgba\(0, 0, 0, 0\))$/.test(rgb)) 
+    return null;
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  if (!m) 
+    return null;
+  const [r, g, b, a] = m.slice(1, 5).map((v, i) => i < 3 ? +v : v ? parseFloat(v) : 1);
+  if (a === 0)
+    return null;
   const hex = [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')
   if (a < 1) {
-    const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0')
-    return `#${hex}${alphaHex}`
+    const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+    return `#${hex}${alphaHex}`;
   }
-  return `#${hex}`
+  return `#${hex}`;
 }
 
 const spaceToComma = val => {
