@@ -1,10 +1,9 @@
 import { memoize, parse as parseRaw } from 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js';
 
 const parse = memoize(parseRaw, 3333);
-
 const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
 
-const toLen = (pxStr) => {
+function toLen(pxStr) {
   const px = parseFloat(pxStr) || 0
   if (!px) return '0'
   if (typeof pxStr === 'string' && pxStr.includes('%')) return pxStr.trim()
@@ -276,16 +275,18 @@ const REVERSE = {
   }
 }
 
-function initCSSS(newShorts) {
+function initCSSS (newShorts) {
+  // document.querySelector('#csss_omg')?.remove()
   const style = Object.assign(document.createElement('style'), { id: 'csss_omg' });
+  document.head.appendChild(style);
   style.shorts = new Set();
   for (let short of newShorts) {
     try {
-      for (let { cssText, rule } of parse(short)) {
-        if (style.shorts.has(rule))
+      for (let { cssText } of parse(short)) {
+        if (style.shorts.has(short))
           continue;
         style.sheet.insertRule(cssText, style.sheet.cssRules.length)
-        style.shorts.add(rule)
+        style.shorts.add(short)
       }
     } catch (err) {
       console.warn(`Parse failed: ${short}`, err)

@@ -1,8 +1,10 @@
-async function downloadAsZip(blobs, zipName = 'resources.zip', manifest = null) {
+import { getContent, safeFetch } from './resource.js';
+
+async function downloadAsZip (blobs, zipName = 'resources.zip', manifest = null) {
   const { default: JSZip } = await import('https://cdn.skypack.dev/@progress/jszip-esm');
   const zip = new JSZip();
   for (const item of blobs) {
-    const contentType = item.candidates?.contentType ?? (await getContentType(item.originalUrl, 'cors'))?.contentType
+    const contentType = item.candidates?.contentType ?? (await getContent(item.originalUrl))?.headers['content-type']?.split(';')[0]
     const folder = contentType?.startsWith('text/html') ? 'pages' : 'resources'
     const candidateFilename =
       item.candidates?.filename && item.candidates.filename !== ''

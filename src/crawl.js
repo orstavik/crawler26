@@ -21,10 +21,9 @@ async function loadPage(otherHtml) {
 
 async function processPage(discoveredResources) {
   const shortsAdded = await minifyCSS();
-  const style = initCSSS(shortsAdded);
+  initCSSS(shortsAdded);
   for (let el of document.querySelectorAll('style:not(#csss_omg), link[rel="stylesheet"]'))
     el.remove();
-  document.head.appendChild(style);
   const html = document.documentElement.outerHTML;
   const extra = await runPipeline(discoveredResources);
   return { html, extra };
@@ -38,12 +37,12 @@ async function main() {
   Object.assign(discoveredResources, extra);
   discoveredResources[location.href].html = html;
   let max = 1;
-  for (let [url, { contentType, isCors, res }] of Object.entries(discoveredResources)) {
+  for (let [url, {headers, isCors,res }] of Object.entries(discoveredResources)) {
     if (!max--) break;
-    if (contentType === 'text/html' && isCors && SafeURL(url).origin === location.origin) {
+    if (res && isCors && headers?.['content-type']?.includes('text/html') && new URL(url).origin === location.origin) {
       const htmlRaw = await res.text();
-      loadPage(htmlRaw);
-      const { html, extra } = await processNextPage(htmlRaw);
+      await loadPage(htmlRaw);
+      const { html, extra } = await processPage(discoveredResources);
       Object.assign(discoveredResources, extra);
       discoveredResources[url].html = html;
     }

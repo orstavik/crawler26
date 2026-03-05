@@ -1,5 +1,5 @@
 'use strict'
-const safeFetch = async (url, method, mode) => {
+export const safeFetch = async (url, method, mode) => {
   try {
     const res = await fetch(url, { method, mode })
     if (!res.ok) throw new Error(`Failed to fetch ${url}`)
@@ -23,7 +23,7 @@ function upgrading(u) {
   return u.href
 }
 
-async function getContent(url) {
+export async function getContent(url) {
   let res = await safeFetch(url, 'GET', 'cors');
   let isCors = true;
   if (!res) {
@@ -33,14 +33,13 @@ async function getContent(url) {
   if (!res) return res;
   return { headers: Object.fromEntries(res.headers), isCors, res };
 }
-
 export async function runPipeline(found) {
   const discovered = {};
   for (let { name } of performance.getEntriesByType('resource')) {
     const url = new URL(name);
     if (url.href in found || url.origin !== location.origin)
       continue;
-    const upgrade = upgrading(url);
+    const upgrade = upgrading(new URL(url));
     if (upgrade !== url.href) {
       const upgradeRes = await getContent(upgrade);
       if (upgradeRes) {
@@ -50,6 +49,5 @@ export async function runPipeline(found) {
     }
     discovered[url.href] = await getContent(url.href);
   }
-  await Promise.all(Object.values(discovered));
   return discovered;
 }
