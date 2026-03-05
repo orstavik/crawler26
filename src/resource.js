@@ -8,7 +8,7 @@ export const safeFetch = async (url, method, mode) => {
   }
 }
 
-function upgrading(u) {
+function upgrading (u) {
   const patterns = [
     /^(.+)-\d{2,5}x\d{2,5}(\.[a-z]+)$/i,
     /^(.+)-scaled(\.[a-z]+)$/i,
@@ -23,31 +23,31 @@ function upgrading(u) {
   return u.href
 }
 
-export async function getContent(url) {
-  let res = await safeFetch(url, 'GET', 'cors');
-  let isCors = true;
+export async function getContent (url) {
+  let res = await safeFetch(url, 'GET', 'cors')
+  let isCors = true
   if (!res) {
-    isCors = false;
-    res = await safeFetch(url, 'GET', 'no-cors');
+    isCors = false
+    res = await safeFetch(url, 'GET', 'no-cors')
   }
-  if (!res) return res;
-  return { headers: Object.fromEntries(res.headers), isCors, res };
+  if (!res) return res
+  return { headers: Object.fromEntries(res.headers), isCors, res }
 }
-export async function runPipeline(found) {
-  const discovered = {};
+export async function runPipeline (found) {
+  const discovered = {}
   for (let { name } of performance.getEntriesByType('resource')) {
-    const url = new URL(name);
+    const url = new URL(name)
     if (url.href in found || url.origin !== location.origin)
-      continue;
-    const upgrade = upgrading(new URL(url));
+      continue
+    const upgrade = upgrading(new URL(url))
     if (upgrade !== url.href) {
-      const upgradeRes = await getContent(upgrade);
+      const upgradeRes = await getContent(upgrade)
       if (upgradeRes) {
-        discovered[url.href] = discovered[upgrade] = upgradeRes;
-        continue;
+        discovered[url.href] = discovered[upgrade] = upgradeRes
+        continue
       }
     }
-    discovered[url.href] = await getContent(url.href);
+    discovered[url.href] = await getContent(url.href)
   }
-  return discovered;
+  return discovered
 }

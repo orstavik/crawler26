@@ -1,9 +1,9 @@
-import { memoize, parse as parseRaw } from 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js';
+import { memoize, parse as parseRaw } from 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js'
 
-const parse = memoize(parseRaw, 3333);
+const parse = memoize(parseRaw, 3333)
 const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
 
-function toLen(pxStr) {
+function toLen (pxStr) {
   const px = parseFloat(pxStr) || 0
   if (!px) return '0'
   if (typeof pxStr === 'string' && pxStr.includes('%')) return pxStr.trim()
@@ -17,21 +17,21 @@ function toLen(pxStr) {
   return (Math.abs(px - Math.round(px)) < 0.05 ? Math.round(px) : px.toFixed(3).replace(/\.?0+$/, "")) + 'px'
 }
 
-function toColor(rgb) {
-  if (!rgb || /^(currentcolor|transparent|rgba\(0, 0, 0, 0\))$/.test(rgb)) 
-    return null;
-  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-  if (!m) 
-    return null;
-  const [r, g, b, a] = m.slice(1, 5).map((v, i) => i < 3 ? +v : v ? parseFloat(v) : 1);
+function toColor (rgb) {
+  if (!rgb || /^(currentcolor|transparent|rgba\(0, 0, 0, 0\))$/.test(rgb))
+    return null
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+  if (!m)
+    return null
+  const [r, g, b, a] = m.slice(1, 5).map((v, i) => i < 3 ? +v : v ? parseFloat(v) : 1)
   if (a === 0)
-    return null;
+    return null
   const hex = [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')
   if (a < 1) {
-    const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
-    return `#${hex}${alphaHex}`;
+    const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0')
+    return `#${hex}${alphaHex}`
   }
-  return `#${hex}`;
+  return `#${hex}`
 }
 
 const spaceToComma = val => {
@@ -43,7 +43,7 @@ const spaceToComma = val => {
     .join(',')
 }
 
-function toSize(w, h, minW, maxW, minH, maxH) {
+function toSize (w, h, minW, maxW, minH, maxH) {
   const wL = toLen(w), hL = toLen(h)
   const normMin = v => (v && parseFloat(v) > 0) ? toLen(v) : null
   const normMax = v => (v && v !== 'none' && parseFloat(v) < 1e6) ? toLen(v) : null
@@ -277,14 +277,14 @@ const REVERSE = {
 
 function initCSSS (newShorts) {
   // document.querySelector('#csss_omg')?.remove()
-  const style = Object.assign(document.createElement('style'), { id: 'csss_omg' });
-  document.head.appendChild(style);
-  style.shorts = new Set();
+  const style = Object.assign(document.createElement('style'), { id: 'csss_omg' })
+  document.head.appendChild(style)
+  style.shorts = new Set()
   for (let short of newShorts) {
     try {
       for (let { cssText } of parse(short)) {
         if (style.shorts.has(short))
-          continue;
+          continue
         style.sheet.insertRule(cssText, style.sheet.cssRules.length)
         style.shorts.add(short)
       }
@@ -292,18 +292,18 @@ function initCSSS (newShorts) {
       console.warn(`Parse failed: ${short}`, err)
     }
   }
-  return style;
+  return style
 }
 
-function waitForStyles(root) {
+function waitForStyles (root) {
   return Promise.all(
     [...root.querySelectorAll('link[rel="stylesheet"]')]
       .filter(l => !l.sheet)
-      .map(l => new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 3000) })));
+      .map(l => new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 3000) })))
 }
 
-async function minifyCSS() {
-  await waitForStyles(document.head);
+async function minifyCSS () {
+  await waitForStyles(document.head)
   const all = [document.body, ...document.body.querySelectorAll('*:not(script,style,meta,link,head,title,br)')]
   const elSnap = all.map(el => ({ el, cs: getComputedStyle(el) }))
   const shortsAdded = new Set()
@@ -316,7 +316,7 @@ async function minifyCSS() {
       }
     }
   }
-  return shortsAdded;
+  return shortsAdded
 }
 
 export {
