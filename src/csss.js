@@ -1,9 +1,35 @@
 import { memoize, parse as parseRaw } from 'https://cdn.jsdelivr.net/gh/orstavik/csss@26.01.28.19/src/csss.js'
 
-const parse = memoize(parseRaw, 3333)
-const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+const parse = memoize(parseRaw, 3333);
+const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+const isUnsafeRaw = v => /^(inherit|unset|initial|revert|revert-layer)$/.test(v);
 
-function toLen (pxStr) {
+// function makeStyleProxy(raw, computed) {
+//   return new Proxy({}, {
+//     get(_, prop) {
+//       if (typeof prop !== 'string')
+//         return undefined
+//       const dash = toDash(prop)
+//       const rawVal = clean(raw?.[prop] ?? raw?.[dash])
+//       if (rawVal && !isUnsafeRaw(rawVal))
+//         return rawVal
+//       return clean(
+//         computed?.[prop] ??
+//         computed?.getPropertyValue?.(dash)
+//       )
+//     }
+//   })
+// }
+
+function mergeObj(raw, computed) {
+  const merged = {...raw}
+  for (const prop in merged) 
+    if (isUnsafeRaw(merged[prop]))
+      merged[prop] = computed[prop];
+  return merged
+}
+
+function toLen(pxStr) {
   const px = parseFloat(pxStr) || 0
   if (!px) return '0'
   if (typeof pxStr === 'string' && pxStr.includes('%')) return pxStr.trim()
@@ -17,7 +43,7 @@ function toLen (pxStr) {
   return (Math.abs(px - Math.round(px)) < 0.05 ? Math.round(px) : px.toFixed(3).replace(/\.?0+$/, "")) + 'px'
 }
 
-function toColor (rgb) {
+function toColor(rgb) {
   if (!rgb || /^(currentcolor|transparent|rgba\(0, 0, 0, 0\))$/.test(rgb))
     return null
   const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
@@ -43,7 +69,7 @@ const spaceToComma = val => {
     .join(',')
 }
 
-function toSize (w, h, minW, maxW, minH, maxH) {
+function toSize(w, h, minW, maxW, minH, maxH) {
   const wL = toLen(w), hL = toLen(h)
   const normMin = v => (v && parseFloat(v) > 0) ? toLen(v) : null
   const normMax = v => (v && v !== 'none' && parseFloat(v) < 1e6) ? toLen(v) : null
@@ -91,8 +117,8 @@ const REVERSE = {
     if (!(display === 'flex' || display === 'inline-flex'))
       return
     let args = []
-    if (flexDirection !== 'row') args.push(flexDirection.replace(/-([a-z])/g, (g) => g[1].toUpperCase()))
-    if (flexWrap === 'wrap') args.push('wrap')
+    if (flexDirection && flexDirection !== 'row') args.push(flexDirection.replace(/-([a-z])/g, (g) => g[1].toUpperCase()))
+    if (flexWrap && flexWrap === 'wrap') args.push('wrap')
     if (gap && gap !== 'normal' && parseFloat(gap) > 0) args.push(`gap(${toLen(gap)})`)
     if (alignItems && alignItems !== 'normal' && alignItems !== 'stretch') {
       const mapped = alignItems.replace('flex-', '').replace('space-', '')
@@ -275,7 +301,7 @@ const REVERSE = {
   }
 }
 
-function initCSSS (newShorts) {
+function initCSSS(newShorts) {
   // document.querySelector('#csss_omg')?.remove()
   const style = Object.assign(document.createElement('style'), { id: 'csss_omg' })
   document.head.appendChild(style)
@@ -295,28 +321,28 @@ function initCSSS (newShorts) {
   return style
 }
 
-function waitForStyles (root) {
+function waitForStyles(root) {
   return Promise.all(
     [...root.querySelectorAll('link[rel="stylesheet"]')]
       .filter(l => !l.sheet)
       .map(l => new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 3000) })))
 }
 
-async function minifyCSS () {
+async function minifyCSS() {
   await waitForStyles(document.head)
   const all = [document.body, ...document.body.querySelectorAll('*:not(script,style,meta,link,head,title,br)')]
-  const elSnap = all.map(el => ({ el, cs: getComputedStyle(el) }))
-  const shortsAdded = new Set()
-  for (const snap of elSnap) {
-    for (const [name, fn] of Object.entries(REVERSE)) {
-      const result = fn(snap.cs)
-      if (result) {
-        shortsAdded.add(result)
-        snap.el.classList.add(result)
+  const shortsAdded = new Set();
+  const getRaw = GetComputedStyleRaw();
+    for (const el of all) {
+      const cs = mergeObj(getRaw(el), getComputedStyle(el));
+      for (const [name, fn] of Object.values(REVERSE)) {
+        const result = fn(cs);
+        if (!result) continue;
+        shortsAdded.add(result);
+        el.classList.add(result);
       }
     }
-  }
-  return shortsAdded
+  return shortsAdded;
 }
 
 export {

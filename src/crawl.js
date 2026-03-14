@@ -31,23 +31,24 @@ async function processPage (discoveredResources) {
 
 async function main () {
   const discoveredResources = {
-    [location.href]: { contentType: 'text/html', isCors: true },
+    [location.href]: { contentType: 'text/html' },
   }
   const { html, extra } = await processPage(discoveredResources)
   Object.assign(discoveredResources, extra)
   discoveredResources[location.href].html = html
   let max = 1
-  for (let [url, { headers, isCors, res }] of Object.entries(discoveredResources)) {
+  for (let [url, data] of Object.entries(discoveredResources)) {
     if (!max--) break
-    if (res && isCors && headers?.['content-type']?.includes('text/html') && new URL(url).origin === location.origin) {
-      const htmlRaw = await res.text()
+    if (!data) continue
+    if (data.res && data.headers?.['content-type']?.includes('text/html') && new URL(url).origin === location.origin) {
+      const htmlRaw = await data.res.text()
       await loadPage(htmlRaw)
       const { html, extra } = await processPage(discoveredResources)
       Object.assign(discoveredResources, extra)
       discoveredResources[url].html = html
     }
   }
-  window.$downloadAsZip = () => downloadAll(Object.values(discoveredResources))
+  window.$downloadAsZip = () => downloadAll(discoveredResources)
   console.log('Crawled resources:', discoveredResources)
 }
 main()
