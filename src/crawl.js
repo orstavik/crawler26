@@ -48,7 +48,9 @@ async function main () {
       discoveredResources[url].html = html
     }
   }
-  window.$downloadAsZip = () => downloadAll(discoveredResources)
   console.log('Crawled resources:', discoveredResources)
+  return discoveredResources
 }
-main()
+
+window.crawl = main
+window.downloadAsZip = downloadAll
