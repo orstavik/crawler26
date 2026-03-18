@@ -2,7 +2,7 @@ import { runPipeline } from './resource.js'
 import { minifyCSS, initCSSS } from './csss.js'
 import { downloadAll } from './download.js'
 
-async function loadPage (otherHtml) {
+async function loadPage(otherHtml) {
   const document2 = new DOMParser().parseFromString(otherHtml, 'text/html')
   const thisHeadTxts = Object.fromEntries(document.head.children.map(el => [el.outerHTML, el]))
   const nextHeadTxts = Object.fromEntries(document2.head.children.map(el => [el.outerHTML, el]))
@@ -19,7 +19,7 @@ async function loadPage (otherHtml) {
   document.body.replaceWith(document2.body)
 }
 
-async function processPage (discoveredResources) {
+async function processPage(discoveredResources) {
   const shortsAdded = await minifyCSS()
   initCSSS(shortsAdded)
   for (let el of document.querySelectorAll('style:not(#csss_omg), link[rel="stylesheet"]'))
@@ -29,10 +29,10 @@ async function processPage (discoveredResources) {
   return { html, extra }
 }
 
-async function main () {
+async function crawlSite() {
   const discoveredResources = {
     [location.href]: { contentType: 'text/html' },
-  }
+  };
   const { html, extra } = await processPage(discoveredResources)
   Object.assign(discoveredResources, extra)
   discoveredResources[location.href].html = html
@@ -52,5 +52,7 @@ async function main () {
   return discoveredResources
 }
 
-window.crawl = main
-window.downloadAsZip = downloadAll
+Object.assign(globalThis, {
+  crawlSite,
+  downloadAsZip: downloadAll,
+});
