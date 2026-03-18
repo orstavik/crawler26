@@ -1,22 +1,24 @@
 # crawler26
-into the devtools paradise!
+slow crawl in the devtools paradise!
 
-## Usage
-
-To generate a single file that can be easily copy-pasted into the dev tools, run:
-
-```bash
-npx esbuild src/crawl.js --bundle --outfile=dist/crawler.js
-```
-
-Then you can copy the contents of `dist/crawler.js` and paste it into the dev tools console.
-
-Once loaded, you can run the crawler manually:
+## how to use
+Copy the contents of `dist/crawler.js` and paste it into the dev tools console.
 
 ```javascript
-// Run the crawler and store the resulting data
 const data = await window.crawl();
-
-// After inspecting the data, download it as a zip file
+// inspecting the data manually if you wish
 await window.downloadAsZip(data);
+```
+
+## Build instructions
+
+```bash
+npx esbuild src/crawl.js \
+  --bundle \
+  --target=esnext \
+  --format=iife \
+  --supported:dynamic-import=true \
+  --external:http://* \
+  --external:https://* \
+  --outfile=dist/crawler.js
 ```
