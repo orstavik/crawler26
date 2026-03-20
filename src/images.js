@@ -1,15 +1,12 @@
-async function downloadImagesAsZip(imagesInstance, zipName = 'images.zip') {
-  const { default: JSZip } = await import('https://cdn.skypack.dev/@progress/jszip-esm');
-  const zip = new JSZip();
-
-  for (const [url, data] of Object.entries(imagesInstance.images))
-    if (data.blob)
-      zip.file(encodeURIComponent(url), data.blob);
-
-  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+async function downloadImagesAsZip(filesToZip, zipName = 'images.zip') {
+  for (let file of filesToZip)
+    file.lastModified = Date.now();
+  const { downloadZip } = await import('https://cdn.jsdelivr.net/npm/client-zip/index.js');
+  const zipBlob = await downloadZip(filesToZip).blob();
   const link = document.createElement('a');
   Object.assign(link, { href: URL.createObjectURL(zipBlob), download: zipName });
   link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 class Resources {
@@ -40,16 +37,11 @@ class Resources {
     if (up.href !== url.href && await this.addLink(up))
       return !!(this.upgrades[url.href] = up.href);
     try {
-      const res = await fetch(url.href, { method: 'HEAD' });
+      const res = await fetch(url.href);
       if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
-      this.images[url.href] = {
-        contentType: res.headers.get('content-type'),
-        blob: await res.blob()
-      };
-      return true;
+      return !!(this.images[url.href] = res);
     } catch (e) {
-      this.errors[url.href] = e;
-      return false;
+      return !(this.errors[url.href] = e);
     }
   }
 
@@ -62,8 +54,19 @@ class Resources {
   }
 
   static async make(...origins) {
+    origins.length || (origins = [location.origin]);
     const instance = new Resources();
     await instance.addPerformanceImages(...origins);
     return instance;
   }
 }
+
+// async function test() {
+//   const resources = await Resources.make();
+//   const images = Object.entries(resources.images).map(([url, input]) => ({
+//     name: btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+//     input
+//   }));
+//   await downloadImagesAsZip(images);
+// }
+// test();
