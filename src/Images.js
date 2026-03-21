@@ -1,15 +1,13 @@
-async function downloadImagesAsZip(filesToZip, zipName = 'images.zip') {
-  for (let file of filesToZip)
-    file.lastModified = Date.now();
-  const { downloadZip } = await import('https://cdn.jsdelivr.net/npm/client-zip/index.js');
-  const zipBlob = await downloadZip(filesToZip).blob();
+const { downloadZip } = await import('https://cdn.jsdelivr.net/npm/client-zip/index.js');
+
+function download(blob, fileName = 'images.zip') {
   const link = document.createElement('a');
-  Object.assign(link, { href: URL.createObjectURL(zipBlob), download: zipName });
+  Object.assign(link, { href: URL.createObjectURL(blob), download: fileName });
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-class Resources {
+class Images {
   errors = {};
   upgrades = {};
   images = {};
@@ -53,20 +51,27 @@ class Resources {
     await Promise.all(images.map(url => this.addLink(url)));
   }
 
+  async zipBlob() {
+    const filesToZip = Object.entries(this.images).map(([url, input]) => ({
+      name: btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+      lastModified: Date.now(),
+      input
+    }));
+    return downloadZip(filesToZip).blob();
+  }
+
   static async make(...origins) {
     origins.length || (origins = [location.origin]);
-    const instance = new Resources();
+    const instance = new Images();
     await instance.addPerformanceImages(...origins);
     return instance;
   }
 }
 
-// async function test() {
-//   const resources = await Resources.make();
-//   const images = Object.entries(resources.images).map(([url, input]) => ({
-//     name: btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
-//     input
-//   }));
-//   await downloadImagesAsZip(images);
-// }
-// test();
+async function test() {
+  debugger;
+  const images = await Images.make();
+  debugger;
+  download(images.zipBlob());
+}
+test();
