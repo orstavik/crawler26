@@ -1,3 +1,4 @@
+import { makeLogical } from './cssMakeLogical.js';
 const { GetComputedStyleRaw } = await import('https://cdn.jsdelivr.net/gh/orstavik/making-a@26.03.21.08/getComputedStyleRaw.js');
 
 async function sha256(str) {
@@ -5,14 +6,15 @@ async function sha256(str) {
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-const getDefaultStyleCache = new Map();
 const getDefaultBrowserStyle = (() => {
   const cache = Object.create(null);
-  return function (tagName, ns = 'http://www.w3.org/1999/xhtml') {
+  const iframe = document.createElement('iframe');
+  iframe.hidden = true;
+  iframe.style.position = 'absolute';
+  document.body.appendChild(iframe);
+
+  return function getDefaultBrowserStyle(tagName, ns = 'http://www.w3.org/1999/xhtml') {
     if (cache[tagName]) return cache[tagName];
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
     const el = iframe.contentDocument.createElementNS(ns, tagName);
     iframe.contentDocument.body.appendChild(el);
     const cs = getComputedStyle(el);
@@ -21,7 +23,6 @@ const getDefaultBrowserStyle = (() => {
       const p = cs[i];
       cache[tagName][p.replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = cs.getPropertyValue(p);
     }
-    document.body.removeChild(iframe);
     return cache[tagName];
   };
 })();
@@ -57,22 +58,22 @@ async function updateGetComputedStyleRawFiltered() {
 
 async function singleClassCss() {
   const { getStyles, otherRules } = await updateGetComputedStyleRawFiltered();
-  const res = Object.create(null);
   const all = [document.body, ...document.body.querySelectorAll('*:not(script,style,meta,link,head,title,br)')];
-  for (const el of all) {
-    const style = getStyles(el);
+  const styles = new Map(all.map(el => [el, getStyles(el)]));
+  const logicalStyles = makeLogical(styles);
+  const res = {};
+  for (const [el, style] of logicalStyles.entries()) {
     if (!style) continue;
     const key = "csss_" + await sha256(JSON.stringify(style));
     el.classList.add(key);
     res[key] ??= style;
   }
-  for (let sheet of document.styleSheets) {
+  for (let sheet of [...document.styleSheets]) {
     sheet.disabled = true;
     sheet.ownerNode?.remove();
   }
   const styleEl = makeStyleSheet(res, otherRules);
   document.head.appendChild(styleEl);
-  return res;
 }
 
 async function tst() {
