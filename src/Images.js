@@ -51,7 +51,7 @@ class Images {
     await Promise.all(images.map(url => this.addLink(url)));
   }
 
-  async zipBlob() {
+  zipBlob() {
     const filesToZip = Object.entries(this.images).map(([url, input]) => ({
       name: btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
       lastModified: Date.now(),
