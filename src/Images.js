@@ -43,6 +43,25 @@ export class Images {
     }
   }
 
+  async addPlaywrightResponse(pwResponse) {
+    const url = new URL(pwResponse.url());
+    if (url.href in this.errors) return false;
+    if ((url.href in this.upgrades) || (url.href in this.images)) return true;
+    
+    const up = this.upgrade(url.href);
+    if (up.href !== url.href && await this.addLink(up))
+      return (this.upgrades[url.href] = up.href), true;
+
+    try {
+      const status = pwResponse.status();
+      if (status >= 400) 
+        throw new Error(status + ' ' + pwResponse.statusText());
+      return !!(this.images[url.href] = await pwResponse.body());
+    } catch (e) {
+      return !(this.errors[url.href] = e);
+    }
+  }
+
   async addPerformanceImages(...origins) {
     const images = performance.getEntriesByType('resource')
       .filter(({ initiatorType }) => initiatorType === 'img')
@@ -60,6 +79,15 @@ export class Images {
     return downloadZip(filesToZip).blob();
   }
 
+  async denoSaveZipToDownloads(filename = 'Images.zip') {
+    const home = Deno.env.get("HOME") || Deno.env.get("USERPROFILE");
+    const dest = `${home}/Downloads/${filename}`;
+    const blob = await this.zipBlob();
+    const arrayBuffer = await blob.arrayBuffer();
+    await Deno.writeFile(dest, new Uint8Array(arrayBuffer));
+    console.log(`Saved images to ${dest}`);
+  }
+
   static async make(...origins) {
     origins.length || (origins = [location.origin]);
     const instance = new Images();
@@ -72,6 +100,6 @@ async function test() {
   debugger;
   const images = await Images.make();
   debugger;
-  download(images.zipBlob());
+  download(await images.zipBlob());
 }
-test();
+// test();

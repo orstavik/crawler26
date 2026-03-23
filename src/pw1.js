@@ -7,6 +7,7 @@ import { Images } from "./Images.js";
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
 
+/*
 function filterAwayDefaultRedundantProperties(rawStyle, defaultStyle) {
   const res = Object.assign(Object.create(null), rawStyle);
   for (let k in defaultStyle)
@@ -66,7 +67,9 @@ function mutatePageStyles(all) {
   document.head.appendChild(styleEl);
   return { stylesMap, faceKeyframes };
 }
+*/
 
+/*
 function makePage(document, foundImages) {
   const all = [document.body, ...document.body.querySelectorAll('*:not(script,style,meta,link,head,title,br)')];
   const { stylesMap, faceKeyframes } = mutatePageStyles(all);
@@ -78,9 +81,10 @@ function makePage(document, foundImages) {
     links: [...document.querySelectorAll('a,area')].map(a => a.href),
   };
 }
+*/
 
 //state
-const images = {};
+const images = new Images();
 const pages = { "https://tegn.tv": undefined };
 
 function getFalsyKey(obj) {
@@ -89,15 +93,37 @@ function getFalsyKey(obj) {
       return key;
 }
 
+page.on("response", async (response) => {
+  if (response.request().resourceType() === "image") {
+    await images.addPlaywrightResponse(response);
+  }
+});
+
+const client = await page.context().newCDPSession(page);
+await client.send('DOM.enable');
+await client.send('CSS.enable');
+
 for (let url, i = 2; i-- && (url = getFalsyKey(pages));) {
   console.log("Crawling", url);
   const res = await page.goto(url);
+  
+  // Extract styles via CDP
+  const { styleSheetHeaders } = await client.send('CSS.getStyleSheetHeaders');
+  const cssTexts = [];
+  for (let header of styleSheetHeaders) {
+    const { text } = await client.send('CSS.getStyleSheetText', { styleSheetId: header.styleSheetId });
+    cssTexts.push({ url: header.sourceURL, text });
+  }
+
   // await page.pause();
   debugger;
-  pages[url] = makePage(res.document(), images);
-  for (let url of pages[url].links)
-    if (!(url in pages))
-      pages[url] = undefined;
+  // pages[url] = makePage(res.document(), images);
+  // for (let url of pages[url].links)
+  //   if (!(url in pages))
+  //     pages[url] = undefined;
 }
+
+await images.saveZipToDownloads();
+
 // Clean up after you resume/close the inspector
 await browser.close();

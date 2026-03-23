@@ -40,6 +40,6 @@ To run the test:
 
 ```bash
 google-chrome --user-data-dir=/tmp/deno-debug --no-first-run > /dev/null 2>&1 & \
-deno run -A --inspect-wait src/pw1.js 2>&1 | \
+deno run -A --allow-write --allow-env --inspect-wait src/pw1.js 2>&1 | \
 sed -u 's|ws://\(.*\)|copy and paste this in chrome:\n\ndevtools://devtools/bundled/inspector.html?v8only=true\&ws=\1\n\n|'
 ```
