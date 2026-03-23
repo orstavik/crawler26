@@ -7,7 +7,7 @@ function download(blob, fileName = 'images.zip') {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-class Images {
+export class Images {
   errors = {};
   upgrades = {};
   images = {};

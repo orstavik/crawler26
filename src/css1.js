@@ -6,7 +6,7 @@ async function sha256(str) {
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-const getDefaultBrowserStyle = (() => {
+export const getDefaultBrowserStyle = (() => {
   const cache = Object.create(null);
   const iframe = document.createElement('iframe');
   iframe.hidden = true;
@@ -27,7 +27,7 @@ const getDefaultBrowserStyle = (() => {
   };
 })();
 
-function makeStyleSheet(styles, otherStyles) {
+export function makeStyleSheet(styles, otherStyles) {
   const style = document.createElement('style');
   const otherRules = otherStyles.map(({ ctx, rule }) => `/* ${JSON.stringify(ctx)} */\n${rule.cssText}`).join('\n\n');
   const normalRules = Object.entries(styles).map(([k, v]) => {

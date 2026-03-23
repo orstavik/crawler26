@@ -1,39 +1,41 @@
-async function replaceCorsStylesheet(sheet) {
-  try {
-    const res = await fetch(`https://offcors.2js-no.workers.dev/?url=${sheet.href}`);
-    if (!res.ok)
-      throw new Error(res.status + " " + res.statusText);
+// I think this is not needed anymore as the getComputedStyleRaw now fixes it..
 
-    const newStyle = document.createElement('style');
-    newStyle.textContent = await res.text();
-    newStyle.setAttribute('data-original-href', sheet.href);
+// async function replaceCorsStylesheet(sheet) {
+//   try {
+//     const res = await fetch(`https://offcors.2js-no.workers.dev/?url=${sheet.href}`);
+//     if (!res.ok)
+//       throw new Error(res.status + " " + res.statusText);
 
-    const owner = sheet.ownerNode;
-    if (owner) {
-      if (owner.media) newStyle.media = owner.media;
-      owner.replaceWith(newStyle);
-    } else {
-      document.head.appendChild(newStyle);
-    }
-    sheet.disabled = true;
-  } catch (fetchErr) {
-    return fetchErr;
-  }
-}
+//     const newStyle = document.createElement('style');
+//     newStyle.textContent = await res.text();
+//     newStyle.setAttribute('data-original-href', sheet.href);
 
-async function patchCorsStylesheets() {
-  const allSheets = Array.from(document.styleSheets);
-  const corsSheets = allSheets.filter(
-    sheet => { try { return !sheet.cssRules; } catch (err) { return err.name === 'SecurityError' && sheet.href; } });
-  for (const sheet of corsSheets)
-    await replaceCorsStylesheet(sheet);
-}
+//     const owner = sheet.ownerNode;
+//     if (owner) {
+//       if (owner.media) newStyle.media = owner.media;
+//       owner.replaceWith(newStyle);
+//     } else {
+//       document.head.appendChild(newStyle);
+//     }
+//     sheet.disabled = true;
+//   } catch (fetchErr) {
+//     return fetchErr;
+//   }
+// }
 
-function tst() {
-  (async () => {
-    debugger;
-    await patchCorsStylesheets();
-  })();
-}
+// async function patchCorsStylesheets() {
+//   const allSheets = Array.from(document.styleSheets);
+//   const corsSheets = allSheets.filter(
+//     sheet => { try { return !sheet.cssRules; } catch (err) { return err.name === 'SecurityError' && sheet.href; } });
+//   for (const sheet of corsSheets)
+//     await replaceCorsStylesheet(sheet);
+// }
 
-export { patchCorsStylesheets };
+// function tst() {
+//   (async () => {
+//     debugger;
+//     await patchCorsStylesheets();
+//   })();
+// }
+
+// export { patchCorsStylesheets };

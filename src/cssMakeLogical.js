@@ -3,20 +3,20 @@ const nonLogical = {
   'vertical-rl': { "Top": "InlineStart", "Left": "BlockEnd", "Right": "BlockStart", "Bottom": "InlineEnd", },
   'vertical-lr': { "Top": "InlineStart", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineEnd", },
   'sideways-lr': { "Top": "InlineEnd", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineStart", },
-  'rtl horizontal-tb': { "Top": "BlockStart", "Left": "InlineEnd", "Right": "InlineStart", "Bottom": "BlockEnd" },
-  'rtl vertical-rl': { "Top": "InlineEnd", "Left": "BlockEnd", "Right": "BlockStart", "Bottom": "InlineStart" },
-  'rtl vertical-lr': { "Top": "InlineEnd", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineStart" },
-  'rtl sideways-lr': { "Top": "InlineStart", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineEnd" },
+  'rtl|horizontal-tb': { "Top": "BlockStart", "Left": "InlineEnd", "Right": "InlineStart", "Bottom": "BlockEnd" },
+  'rtl|vertical-rl': { "Top": "InlineEnd", "Left": "BlockEnd", "Right": "BlockStart", "Bottom": "InlineStart" },
+  'rtl|vertical-lr': { "Top": "InlineEnd", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineStart" },
+  'rtl|sideways-lr': { "Top": "InlineStart", "Left": "BlockStart", "Right": "BlockEnd", "Bottom": "InlineEnd" },
 };
 const nonLogicalRadius = {
   'sideways-lr': { "TopLeft": "StartStart", "TopRight": "EndStart", "BottomLeft": "StartEnd", "BottomRight": "EndEnd" },
   'horizontal-tb': { "TopLeft": "StartStart", "TopRight": "StartEnd", "BottomLeft": "EndStart", "BottomRight": "EndEnd", },
   'vertical-rl': { "TopLeft": "EndStart", "TopRight": "StartStart", "BottomLeft": "EndEnd", "BottomRight": "StartEnd", },
   'vertical-lr': { "TopLeft": "StartStart", "TopRight": "EndStart", "BottomLeft": "StartEnd", "BottomRight": "EndEnd", },
-  'rtl horizontal-tb': { "TopLeft": "StartEnd", "TopRight": "StartStart", "BottomLeft": "EndEnd", "BottomRight": "EndStart" },
-  'rtl vertical-rl': { "TopLeft": "EndEnd", "TopRight": "StartEnd", "BottomLeft": "EndStart", "BottomRight": "StartStart" },
-  'rtl vertical-lr': { "TopLeft": "StartEnd", "TopRight": "EndEnd", "BottomLeft": "StartStart", "BottomRight": "EndStart" },
-  'rtl sideways-lr': { "TopLeft": "StartEnd", "TopRight": "EndEnd", "BottomLeft": "StartStart", "BottomRight": "EndStart", },
+  'rtl|horizontal-tb': { "TopLeft": "StartEnd", "TopRight": "StartStart", "BottomLeft": "EndEnd", "BottomRight": "EndStart" },
+  'rtl|vertical-rl': { "TopLeft": "EndEnd", "TopRight": "StartEnd", "BottomLeft": "EndStart", "BottomRight": "StartStart" },
+  'rtl|vertical-lr': { "TopLeft": "StartEnd", "TopRight": "EndEnd", "BottomLeft": "StartStart", "BottomRight": "EndStart" },
+  'rtl|sideways-lr': { "TopLeft": "StartEnd", "TopRight": "EndEnd", "BottomLeft": "StartStart", "BottomRight": "EndStart", },
 };
 
 const PhysicalToLogical = {}, PhysicalToLogicalValues = {};
@@ -43,7 +43,7 @@ function makeLogicalValue(k, v, valueMap) {
           v;
 }
 
-function toLogicalProp(styles, writingMode = "horizontal-tb") {
+export function toLogicalProp(styles, writingMode = "horizontal-tb") {
   if (!styles) return styles;
   writingMode = writingMode.replace("sideways-rl", "vertical-rl");
   const map = PhysicalToLogical[writingMode];
@@ -54,15 +54,20 @@ function toLogicalProp(styles, writingMode = "horizontal-tb") {
   return res;
 }
 
-export function makeLogical(mapWithElementsSortedTopDownToStyles) {
-  const cache = new Map();
-  for (let el of mapWithElementsSortedTopDownToStyles.keys()) {
-    const parent = cache.get(el.parentElement);
-    const writingMode = mapWithElementsSortedTopDownToStyles.get(el)?.writingMode ?? parent?.writingMode ?? "horizontal-tb";
-    const direction = el.dir || mapWithElementsSortedTopDownToStyles.get(el)?.direction ?? parent?.direction ?? "ltr";
-    const key = direction === "rtl" ? "rtl " + writingMode : writingMode;
-    cache.set(el, { writingMode, direction, key });
-  }
-  return new Map([...mapWithElementsSortedTopDownToStyles.entries()].map(([el, styles]) =>
-    [el, toLogicalProp(styles, cache.get(el).key)]));
-}
+// export function makeWritingModeMap(mapWithElementsSortedTopDownToStyles) {
+//   const res = new Map();
+//   for (let el of mapWithElementsSortedTopDownToStyles.keys()) {
+//     const parent = res.get(el.parentElement);
+//     const writingMode = mapWithElementsSortedTopDownToStyles.get(el)?.writingMode ?? parent?.writingMode ?? "horizontal-tb";
+//     const direction = el.dir || mapWithElementsSortedTopDownToStyles.get(el)?.direction ?? parent?.direction ?? "ltr";
+//     const key = direction === "rtl" ? "rtl|" + writingMode : writingMode;
+//     res.set(el, { writingMode, direction, key });
+//   }
+//   return res;
+// }
+
+// export function makeLogical(mapWithElementsSortedTopDownToStyles) {
+//   const writingModes = makeWritingModeMap(mapWithElementsSortedTopDownToStyles);
+//   return new Map([...mapWithElementsSortedTopDownToStyles.entries()].map(([el, styles]) =>
+//     [el, toLogicalProp(styles, writingModes.get(el).key)]));
+// }

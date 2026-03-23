@@ -1,6 +1,4 @@
-import { runPipeline } from './resource.js';
 import { minifyCSS, initCSSS } from './csss.js';
-import { downloadAll } from './download.js';
 
 async function loadPage(otherHtml) {
   const document2 = new DOMParser().parseFromString(otherHtml, 'text/html');
@@ -55,5 +53,4 @@ async function crawlSite() {
 
 Object.assign(globalThis, {
   crawlSite,
-  downloadAsZip: downloadAll,
 });
