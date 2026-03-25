@@ -44,7 +44,6 @@ function makeLogicalValue(k, v, valueMap) {
 }
 
 export function toLogicalProp(styles, writingMode = "horizontal-tb") {
-  if (!styles) return styles;
   writingMode = writingMode.replace("sideways-rl", "vertical-rl");
   const map = PhysicalToLogical[writingMode];
   const valueMap = PhysicalToLogicalValues[writingMode];
@@ -69,5 +68,5 @@ export function toLogicalProp(styles, writingMode = "horizontal-tb") {
 // export function makeLogical(mapWithElementsSortedTopDownToStyles) {
 //   const writingModes = makeWritingModeMap(mapWithElementsSortedTopDownToStyles);
 //   return new Map([...mapWithElementsSortedTopDownToStyles.entries()].map(([el, styles]) =>
-//     [el, toLogicalProp(styles, writingModes.get(el).key)]));
+//     [el, styles && toLogicalProp(styles, writingModes.get(el).key)]));
 // }
